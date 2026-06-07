@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/social_service.dart';
 import '../services/vote_service.dart';
 import '../utils/profile_navigation.dart';
-import 'auth_required_dialog.dart';
+import 'auth_guard.dart';
 
 /// Feed card for a poll row from Supabase (`polls` select with nested relations).
 class PollCard extends StatefulWidget {
@@ -203,43 +203,45 @@ class _PollCardState extends State<PollCard> {
   Future<void> _onVote(String optionId) async {
     if (_voteLoading || _hasVoted) return;
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      await showAuthRequiredDialog(context);
-      return;
-    }
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) return;
 
-    setState(() => _voteLoading = true);
-    try {
-      await _voteService.vote(
-        pollId: _pollId,
-        optionId: optionId,
-        userId: user.id,
-      );
-      if (!mounted) return;
-      setState(() => _selectedOptionId = optionId);
-      await _refreshVoteCounts();
-    } on PostgrestException catch (e) {
-      final user = Supabase.instance.client.auth.currentUser;
-      if (_isDuplicateVoteError(e) && user != null) {
-        final vote = await _voteService.getUserVote(
-          pollId: _pollId,
-          userId: user.id,
-        );
-        if (!mounted) return;
-        if (vote is Map && vote['option_id'] != null) {
-          setState(() => _selectedOptionId = vote['option_id'].toString());
+        setState(() => _voteLoading = true);
+        try {
+          await _voteService.vote(
+            pollId: _pollId,
+            optionId: optionId,
+            userId: user.id,
+          );
+          if (!mounted) return;
+          setState(() => _selectedOptionId = optionId);
+          await _refreshVoteCounts();
+        } on PostgrestException catch (e) {
+          final user = Supabase.instance.client.auth.currentUser;
+          if (_isDuplicateVoteError(e) && user != null) {
+            final vote = await _voteService.getUserVote(
+              pollId: _pollId,
+              userId: user.id,
+            );
+            if (!mounted) return;
+            if (vote is Map && vote['option_id'] != null) {
+              setState(() => _selectedOptionId = vote['option_id'].toString());
+            }
+            await _refreshVoteCounts();
+            _showMessage('You already voted on this poll.');
+          } else {
+            _showMessage(_friendlyError(e.message));
+          }
+        } catch (_) {
+          _showMessage('Could not submit vote. Check your connection.');
+        } finally {
+          if (mounted) setState(() => _voteLoading = false);
         }
-        await _refreshVoteCounts();
-        _showMessage('You already voted on this poll.');
-      } else {
-        _showMessage(_friendlyError(e.message));
-      }
-    } catch (_) {
-      _showMessage('Could not submit vote. Check your connection.');
-    } finally {
-      if (mounted) setState(() => _voteLoading = false);
-    }
+      },
+    );
   }
 
   bool _isDuplicateVoteError(PostgrestException e) {
@@ -254,50 +256,52 @@ class _PollCardState extends State<PollCard> {
   Future<void> _toggleLike() async {
     if (_likeLoading) return;
 
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      await showAuthRequiredDialog(context);
-      return;
-    }
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) return;
 
-    setState(() => _likeLoading = true);
-    final nextLiked = !_liked;
-    try {
-      if (nextLiked) {
-        await _socialService.likePoll(pollId: _pollId, userId: user.id);
-      } else {
-        await _socialService.unlikePoll(pollId: _pollId, userId: user.id);
-      }
-      if (!mounted) return;
-      setState(() {
-        _liked = nextLiked;
-        _likesCount += nextLiked ? 1 : -1;
-        if (_likesCount < 0) _likesCount = 0;
-      });
-    } on PostgrestException catch (e) {
-      if (_isDuplicateVoteError(e)) {
-        if (!mounted) return;
-        setState(() {
-          _liked = true;
-        });
-        _showMessage('Already liked.');
-      } else {
-        _showMessage(_friendlyError(e.message));
-      }
-    } catch (_) {
-      _showMessage('Could not update like. Check your connection.');
-    } finally {
-      if (mounted) setState(() => _likeLoading = false);
-    }
+        setState(() => _likeLoading = true);
+        final nextLiked = !_liked;
+        try {
+          if (nextLiked) {
+            await _socialService.likePoll(pollId: _pollId, userId: user.id);
+          } else {
+            await _socialService.unlikePoll(pollId: _pollId, userId: user.id);
+          }
+          if (!mounted) return;
+          setState(() {
+            _liked = nextLiked;
+            _likesCount += nextLiked ? 1 : -1;
+            if (_likesCount < 0) _likesCount = 0;
+          });
+        } on PostgrestException catch (e) {
+          if (_isDuplicateVoteError(e)) {
+            if (!mounted) return;
+            setState(() {
+              _liked = true;
+            });
+            _showMessage('Already liked.');
+          } else {
+            _showMessage(_friendlyError(e.message));
+          }
+        } catch (_) {
+          _showMessage('Could not update like. Check your connection.');
+        } finally {
+          if (mounted) setState(() => _likeLoading = false);
+        }
+      },
+    );
   }
 
-  void _onCommentTap() {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      showAuthRequiredDialog(context);
-      return;
-    }
-    widget.onPollTap?.call();
+  Future<void> _onCommentTap() async {
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        widget.onPollTap?.call();
+      },
+    );
   }
 
   String _friendlyError(String message) {

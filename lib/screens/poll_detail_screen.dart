@@ -5,7 +5,7 @@ import '../services/moderation_service.dart';
 import '../services/poll_service.dart';
 import '../services/social_service.dart';
 import '../utils/profile_navigation.dart';
-import '../widgets/auth_required_dialog.dart';
+import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
 
 /// Full poll view with comments and report action.
@@ -131,62 +131,66 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   }
 
   Future<void> _submitComment() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      await showAuthRequiredDialog(context);
-      return;
-    }
-
     final text = _commentCtrl.text.trim();
     if (text.isEmpty) {
       _snack('Write a comment first.');
       return;
     }
 
-    setState(() => _postingComment = true);
-    try {
-      await _socialService.addComment(
-        pollId: widget.pollId,
-        userId: user.id,
-        commentText: text,
-      );
-      if (!mounted) return;
-      _commentCtrl.clear();
-      await _load(showFullLoading: false);
-      if (!mounted) return;
-      _snack('Comment added');
-    } on PostgrestException catch (e) {
-      _snack(e.message.isNotEmpty ? e.message : 'Could not post comment.');
-    } catch (_) {
-      _snack('Network error. Try again.');
-    } finally {
-      if (mounted) setState(() => _postingComment = false);
-    }
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) return;
+
+        setState(() => _postingComment = true);
+        try {
+          await _socialService.addComment(
+            pollId: widget.pollId,
+            userId: user.id,
+            commentText: text,
+          );
+          if (!mounted) return;
+          _commentCtrl.clear();
+          await _load(showFullLoading: false);
+          if (!mounted) return;
+          _snack('Comment added');
+        } on PostgrestException catch (e) {
+          _snack(e.message.isNotEmpty ? e.message : 'Could not post comment.');
+        } catch (_) {
+          _snack('Network error. Try again.');
+        } finally {
+          if (mounted) setState(() => _postingComment = false);
+        }
+      },
+    );
   }
 
   Future<void> _reportPoll() async {
-    final user = Supabase.instance.client.auth.currentUser;
-    if (user == null) {
-      await showAuthRequiredDialog(context);
-      return;
-    }
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final user = Supabase.instance.client.auth.currentUser;
+        if (user == null) return;
 
-    try {
-      await _moderationService.reportContent(
-        reporterId: user.id,
-        targetType: 'poll',
-        targetId: widget.pollId,
-        reason: 'inappropriate_content',
-      );
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Report submitted')),
-      );
-    } on PostgrestException catch (e) {
-      _snack(e.message.isNotEmpty ? e.message : 'Could not submit report.');
-    } catch (_) {
-      _snack('Could not submit report. Try again.');
-    }
+        try {
+          await _moderationService.reportContent(
+            reporterId: user.id,
+            targetType: 'poll',
+            targetId: widget.pollId,
+            reason: 'inappropriate_content',
+          );
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Report submitted')),
+          );
+        } on PostgrestException catch (e) {
+          _snack(e.message.isNotEmpty ? e.message : 'Could not submit report.');
+        } catch (_) {
+          _snack('Could not submit report. Try again.');
+        }
+      },
+    );
   }
 
   void _snack(String message) {

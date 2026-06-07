@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
 import '../services/seen_polls_store.dart';
+import '../widgets/auth_guard.dart';
 import '../widgets/paged_poll_feed.dart';
 import 'create_poll_screen.dart';
 import 'notifications_screen.dart';
@@ -191,18 +192,23 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final created = await Navigator.of(context).push<bool>(
-            MaterialPageRoute<bool>(
-              builder: (context) => const CreatePollScreen(),
-            ),
+          await AuthGuard.requireAuth(
+            context,
+            onAuthenticated: () async {
+              final created = await Navigator.of(context).push<bool>(
+                MaterialPageRoute<bool>(
+                  builder: (context) => const CreatePollScreen(),
+                ),
+              );
+              if (!context.mounted) return;
+              if (created == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Poll published')),
+                );
+                widget.feedReloadToken?.value++;
+              }
+            },
           );
-          if (!context.mounted) return;
-          if (created == true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Poll published')),
-            );
-            widget.feedReloadToken?.value++;
-          }
         },
         child: const Icon(Icons.add),
       ),
@@ -218,12 +224,17 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
               tooltip: 'Notifications',
               icon: const Icon(Icons.notifications_outlined),
               onPressed: () async {
-                await Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(builder: (context) => const NotificationsScreen()),
+                await AuthGuard.requireAuth(
+                  context,
+                  onAuthenticated: () async {
+                    await Navigator.of(context).push<void>(
+                      MaterialPageRoute<void>(builder: (context) => const NotificationsScreen()),
+                    );
+                    if (!context.mounted) return;
+                    final u = Supabase.instance.client.auth.currentUser;
+                    if (u != null) await _refreshUnreadBadge(u.id);
+                  },
                 );
-                if (!context.mounted) return;
-                final u = Supabase.instance.client.auth.currentUser;
-                if (u != null) await _refreshUnreadBadge(u.id);
               },
             ),
           ),

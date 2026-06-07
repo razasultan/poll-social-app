@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
 import '../services/social_service.dart';
-import '../widgets/auth_required_dialog.dart';
+import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
 import 'poll_detail_screen.dart';
 import 'settings_screen.dart';
@@ -229,52 +229,55 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _toggleFollow() async {
-    final me = _currentUserId;
-    if (me == null) {
-      await showAuthRequiredDialog(context);
-      return;
-    }
     if (_isOwnProfile || _followBusy) return;
 
-    setState(() => _followBusy = true);
-    try {
-      if (_isFollowing) {
-        await _socialService.unfollowUser(followerId: me, followingId: widget.userId);
-        if (!mounted) return;
-        setState(() {
-          _isFollowing = false;
-          _followersCount = (_followersCount > 0) ? _followersCount - 1 : 0;
-        });
-      } else {
-        await _socialService.followUser(followerId: me, followingId: widget.userId);
-        if (!mounted) return;
-        setState(() {
-          _isFollowing = true;
-          _followersCount++;
-        });
-      }
-    } on PostgrestException catch (e) {
-      if (!mounted) return;
-      if (_isFollowing) {
-        _followSnack(e.message.isNotEmpty ? e.message : 'Could not unfollow.');
-        await _reloadFollowRelationship();
-      } else {
-        if (_isDuplicateFollowError(e)) {
-          await _reloadFollowRelationship();
-          _followSnack('Already following this profile.');
-        } else {
-          _followSnack(e.message.isNotEmpty ? e.message : 'Could not follow.');
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final me = _currentUserId;
+        if (me == null || _isOwnProfile || _followBusy) return;
+
+        setState(() => _followBusy = true);
+        try {
+          if (_isFollowing) {
+            await _socialService.unfollowUser(followerId: me, followingId: widget.userId);
+            if (!mounted) return;
+            setState(() {
+              _isFollowing = false;
+              _followersCount = (_followersCount > 0) ? _followersCount - 1 : 0;
+            });
+          } else {
+            await _socialService.followUser(followerId: me, followingId: widget.userId);
+            if (!mounted) return;
+            setState(() {
+              _isFollowing = true;
+              _followersCount++;
+            });
+          }
+        } on PostgrestException catch (e) {
+          if (!mounted) return;
+          if (_isFollowing) {
+            _followSnack(e.message.isNotEmpty ? e.message : 'Could not unfollow.');
+            await _reloadFollowRelationship();
+          } else {
+            if (_isDuplicateFollowError(e)) {
+              await _reloadFollowRelationship();
+              _followSnack('Already following this profile.');
+            } else {
+              _followSnack(e.message.isNotEmpty ? e.message : 'Could not follow.');
+            }
+          }
+        } catch (_) {
+          if (!mounted) return;
+          _followSnack('Network error. Try again.');
+          if (_isFollowing) {
+            await _reloadFollowRelationship();
+          }
+        } finally {
+          if (mounted) setState(() => _followBusy = false);
         }
-      }
-    } catch (_) {
-      if (!mounted) return;
-      _followSnack('Network error. Try again.');
-      if (_isFollowing) {
-        await _reloadFollowRelationship();
-      }
-    } finally {
-      if (mounted) setState(() => _followBusy = false);
-    }
+      },
+    );
   }
 
   @override
