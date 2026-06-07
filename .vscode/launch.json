@@ -1,0 +1,51 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter DEV",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=APP_ENV=dev",
+        "--dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF"
+      ]
+    },
+    {
+      "name": "Flutter DEV (Release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "toolArgs": [
+        "--dart-define=APP_ENV=dev",
+        "--dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF"
+      ]
+    },
+    {
+      "name": "Flutter PROD",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "toolArgs": [
+        "--dart-define=APP_ENV=prod",
+        "--dart-define=SUPABASE_URL=YOUR_PROD_URL",
+        "--dart-define=SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY"
+      ]
+    },
+    {
+      "name": "Flutter PROD (Release)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "release",
+      "toolArgs": [
+        "--dart-define=APP_ENV=prod",
+        "--dart-define=SUPABASE_URL=YOUR_PROD_URL",
+        "--dart-define=SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY"
+      ]
+    }
+  ]
+}

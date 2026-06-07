@@ -1,2 +1,105 @@
 # poll-social-app
+
 A social polling platform where users create polls (text, image, video), follow others, vote instantly, and discover regional/global opinion trends.
+
+## Stack
+
+- **Flutter** (mobile, web, desktop)
+- **Supabase** (auth, Postgres, realtime)
+
+## Environments (DEV / PROD)
+
+Supabase URL and anon key are **not** hardcoded. They are supplied at build/run time with `--dart-define`:
+
+| Define | Purpose |
+|--------|---------|
+| `APP_ENV` | `dev` (default) or `prod` |
+| `SUPABASE_URL` | Project API URL |
+| `SUPABASE_ANON_KEY` | Publishable anon key |
+
+Config lives in `lib/core/config/app_config.dart`. Supabase startup is in `lib/core/config/supabase_config.dart`.
+
+### Run DEV (Cursor / VS Code)
+
+1. Open **Run and Debug**.
+2. Choose **Flutter DEV** (`.vscode/launch.json`).
+3. Start debugging.
+
+That configuration sets `APP_ENV=dev` and the **poll-social-app-dev** Supabase project. It runs in **debug** mode (hot reload, breakpoints).
+
+Use **Flutter DEV (Release)** for the same DEV backend in **release** mode (no hot reload; closer to store performance). **Flutter PROD (Release)** is the same for production defines.
+
+### Run DEV (command line)
+
+```bash
+flutter run \
+  --dart-define=APP_ENV=dev \
+  --dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF
+```
+
+### Run PROD
+
+Replace placeholders with your production project values (launch config **Flutter PROD** or CLI):
+
+```bash
+flutter run \
+  --dart-define=APP_ENV=prod \
+  --dart-define=SUPABASE_URL=YOUR_PROD_URL \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY
+```
+
+### Debug DEV indicator
+
+In **debug** builds, when `APP_ENV=dev`, a small orange **DEV** badge appears at the top-right so you can see you are not on production.
+
+If `SUPABASE_URL` or `SUPABASE_ANON_KEY` is missing, the app shows a startup error screen and prints a clear message to the console (no silent failure).
+
+### Login error: `Database error querying schema`
+
+This comes from **Supabase Auth** (HTTP 500), not from Flutter. It often happens when a user in `auth.users` was created with **SQL** and token columns (`confirmation_token`, `recovery_token`, etc.) are **NULL** instead of `''`.
+
+**Fix (DEV project — poll-social-app-dev):**
+
+1. Confirm the app shows the **DEV** badge (you are on the dev Supabase project).
+2. Open [Supabase SQL Editor](https://supabase.com/dashboard) for that project.
+3. Run `supabase/troubleshooting-auth-login.sql`.
+4. Try signing in again.
+
+**Also check:**
+
+- `user1@test.com` must exist in **this** project (Authentication → Users). Users from the old prod project are not shared with dev.
+- Prefer **Sign up** in the app or **Add user** in the dashboard instead of manual `INSERT` into `auth.users`.
+- If it still fails, open **Logs → Postgres** right after a failed login for the underlying SQL error.
+
+## Creating a poll
+
+1. Sign in with a valid account (use your auth flow or the temporary **Backend test** screen from the debug route).
+2. On the **Poll Feed**, tap the **floating action button (+)**.
+3. Fill in **Create Poll**:
+   - **Question** (required)
+   - **Description** (optional)
+   - **Answer choices**: at least 2, up to 5 (use **Add option** / remove on each row)
+   - **Expiration**: none, presets (1 hour / 24 hours / 7 days), or **Custom date & time**
+   - **Visibility**: `Public`, `Followers`, or `Private` (stored as sent to `PollService.createPoll`)
+   - **Country** / **City** (optional)
+4. Tap **Publish Poll**. While publishing, the button is disabled and a progress indicator appears.
+5. On success the screen closes with `Navigator.pop(context, true)`, the feed shows **Poll published**, and **Latest** / **Trending** lists refresh.
+
+Validation errors (not signed in, missing question, too few options, duplicate option text, invalid expiration, etc.) are shown via **SnackBar**.
+
+### Debug route
+
+Long-press the poll icon in the feed app bar title, or navigate to `Navigator.pushNamed(context, '/debug')`, to open the developer backend test screen.
+
+## Project layout (high level)
+
+- `lib/main.dart` — app entry, theme, routes
+- `lib/core/config/app_config.dart` — `APP_ENV`, Supabase dart-defines
+- `lib/core/config/supabase_config.dart` — Supabase initialization
+- `lib/core/widgets/dev_environment_banner.dart` — debug DEV badge
+- `.vscode/launch.json` — **Flutter DEV** / **PROD** (debug and release) launch configs
+- `lib/screens/create_poll_screen.dart` — create poll UI
+- `lib/widgets/poll_card.dart` — feed poll card
+- `lib/services/poll_service.dart` — `createPoll`, `getPollById`, …
+- `lib/services/auth_service.dart` — sign-in / current user helpers
