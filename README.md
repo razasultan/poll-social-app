@@ -24,11 +24,12 @@ the app and browse without an account.
 - Following / unfollowing users
 - Viewing the **For You** feed, notifications, and settings
 
-When a guest taps a gated action, a **"Login required"** dialog appears
-(Cancel / Login / Sign up) — see `lib/widgets/auth_required_dialog.dart`.
-Screens like Create Poll, Notifications, Settings, and your own Profile show a
-dedicated login prompt instead of the dialog when opened directly while signed
-out.
+When a guest taps a gated action (vote, like, comment, follow, create a poll,
+or open notifications), a bottom sheet prompts **"Log in to interact with
+polls and follow creators."** with **Log in** / **Create account** / **Not
+now** options — see `AuthGuard.requireAuth` in `lib/widgets/auth_guard.dart`.
+Your own Profile tab shows a dedicated login prompt instead when opened while
+signed out.
 
 ## Environments (DEV / PROD)
 
