@@ -47,7 +47,8 @@ To avoid retyping the `--dart-define` flags, use the wrapper scripts in `scripts
 # PowerShell
 .\scripts\run_dev.ps1                        # debug, default device
 .\scripts\run_dev.ps1 -Release -Device windows
-.\scripts\run_prod.ps1                       # requires the PROD anon key to be filled in first
+.\scripts\run_prod.ps1
+.\scripts\run_prod.ps1 -Release -Device windows
 ```
 
 ```bash
@@ -55,25 +56,23 @@ To avoid retyping the `--dart-define` flags, use the wrapper scripts in `scripts
 make run-dev
 make run-dev FLUTTER_ARGS="-d windows"
 make run-dev-release
-make run-prod            # requires SUPABASE_PROD_ANON_KEY to be filled in first
+make run-prod
 make run-prod-release
 ```
 
-The PROD anon key is left as a placeholder (`YOUR_PROD_ANON_KEY`) in both
-`scripts/run_prod.ps1` and the `Makefile` — fill it in from the Supabase
-dashboard (**poll-social-app** project → Settings → API → Publishable key) or
-the Notion doc before using the PROD shortcuts. Note the PROD project may show
-as paused/inactive and need to be resumed first.
+Both scripts and the `Makefile` already have the PROD URL and publishable anon
+key filled in (Supabase dashboard → **poll-social-app** project → Settings →
+API → Publishable key, if it ever needs rotating).
 
 ### Run PROD
 
-Replace placeholders with your production project values (launch config **Flutter PROD** or CLI):
+Use the **Flutter PROD** launch config, the shortcuts above, or the CLI directly:
 
 ```bash
 flutter run \
   --dart-define=APP_ENV=prod \
-  --dart-define=SUPABASE_URL=YOUR_PROD_URL \
-  --dart-define=SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY
+  --dart-define=SUPABASE_URL=https://ioweogjlumrzcbejwbeb.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=sb_publishable_eBRj_ukaVQGpeAfcjwKvjQ_8sIu7PIP
 ```
 
 ### Debug DEV indicator

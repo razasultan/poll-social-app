@@ -13,11 +13,10 @@
 SUPABASE_DEV_URL := https://uwomsxkvjqrvhdpnbkit.supabase.co
 SUPABASE_DEV_ANON_KEY := sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF
 
-# Fill in the PROD anon key (Supabase dashboard -> poll-social-app -> Settings
-# -> API -> Publishable key; also documented in Notion). The PROD project may
-# need to be resumed first if it shows as paused/inactive.
+# PROD project (poll-social-app). Get a fresh publishable key from the
+# Supabase dashboard (Settings -> API -> Publishable key) if it ever rotates.
 SUPABASE_PROD_URL := https://ioweogjlumrzcbejwbeb.supabase.co
-SUPABASE_PROD_ANON_KEY := YOUR_PROD_ANON_KEY
+SUPABASE_PROD_ANON_KEY := sb_publishable_eBRj_ukaVQGpeAfcjwKvjQ_8sIu7PIP
 
 DEV_DEFINES := --dart-define=APP_ENV=dev \
                --dart-define=SUPABASE_URL=$(SUPABASE_DEV_URL) \
@@ -27,7 +26,7 @@ PROD_DEFINES := --dart-define=APP_ENV=prod \
                 --dart-define=SUPABASE_URL=$(SUPABASE_PROD_URL) \
                 --dart-define=SUPABASE_ANON_KEY=$(SUPABASE_PROD_ANON_KEY)
 
-.PHONY: run-dev run-dev-release run-prod run-prod-release check-prod-key
+.PHONY: run-dev run-dev-release run-prod run-prod-release
 
 run-dev:
 	flutter run $(DEV_DEFINES) $(FLUTTER_ARGS)
@@ -35,14 +34,8 @@ run-dev:
 run-dev-release:
 	flutter run --release $(DEV_DEFINES) $(FLUTTER_ARGS)
 
-run-prod: check-prod-key
+run-prod:
 	flutter run $(PROD_DEFINES) $(FLUTTER_ARGS)
 
-run-prod-release: check-prod-key
+run-prod-release:
 	flutter run --release $(PROD_DEFINES) $(FLUTTER_ARGS)
-
-check-prod-key:
-	@if [ "$(SUPABASE_PROD_ANON_KEY)" = "YOUR_PROD_ANON_KEY" ]; then \
-		echo "Set SUPABASE_PROD_ANON_KEY in the Makefile to the PROD project's publishable anon key before running this." >&2; \
-		exit 1; \
-	fi

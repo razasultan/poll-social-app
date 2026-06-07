@@ -31,8 +31,8 @@
       "program": "lib/main.dart",
       "toolArgs": [
         "--dart-define=APP_ENV=prod",
-        "--dart-define=SUPABASE_URL=YOUR_PROD_URL",
-        "--dart-define=SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY"
+        "--dart-define=SUPABASE_URL=https://ioweogjlumrzcbejwbeb.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_eBRj_ukaVQGpeAfcjwKvjQ_8sIu7PIP"
       ]
     },
     {
@@ -43,8 +43,8 @@
       "flutterMode": "release",
       "toolArgs": [
         "--dart-define=APP_ENV=prod",
-        "--dart-define=SUPABASE_URL=YOUR_PROD_URL",
-        "--dart-define=SUPABASE_ANON_KEY=YOUR_PROD_ANON_KEY"
+        "--dart-define=SUPABASE_URL=https://ioweogjlumrzcbejwbeb.supabase.co",
+        "--dart-define=SUPABASE_ANON_KEY=sb_publishable_eBRj_ukaVQGpeAfcjwKvjQ_8sIu7PIP"
       ]
     }
   ]

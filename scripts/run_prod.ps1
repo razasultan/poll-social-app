@@ -13,10 +13,9 @@
   .\scripts\run_prod.ps1 -Release -Device windows
 
 .NOTES
-  Fill in $SupabaseAnonKey below with the PROD project's publishable anon key
-  (Supabase dashboard -> poll-social-app -> Settings -> API -> Publishable key,
-  also documented in Notion). The PROD project may need to be resumed first if
-  it shows as paused/inactive.
+  Targets the PROD Supabase project (poll-social-app). Get a fresh publishable
+  key from the Supabase dashboard (Settings -> API -> Publishable key) if it
+  ever rotates.
 #>
 param(
     [switch]$Release,
@@ -24,12 +23,7 @@ param(
 )
 
 $SupabaseUrl = "https://ioweogjlumrzcbejwbeb.supabase.co"
-$SupabaseAnonKey = "YOUR_PROD_ANON_KEY"
-
-if ($SupabaseAnonKey -eq "YOUR_PROD_ANON_KEY") {
-    Write-Error "Set `$SupabaseAnonKey in scripts\run_prod.ps1 to the PROD project's publishable anon key before running this."
-    exit 1
-}
+$SupabaseAnonKey = "sb_publishable_eBRj_ukaVQGpeAfcjwKvjQ_8sIu7PIP"
 
 $flutterArgs = @(
     "run",
