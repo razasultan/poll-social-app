@@ -81,6 +81,18 @@ In **debug** builds, when `APP_ENV=dev`, a small orange **DEV** badge appears at
 
 If `SUPABASE_URL` or `SUPABASE_ANON_KEY` is missing, the app shows a startup error screen and prints a clear message to the console (no silent failure).
 
+### Test account (manual testing, DEV only)
+
+A seeded, confirmed account on the **DEV** Supabase project — copy/paste straight into the login screen:
+
+| Field | Value |
+|-------|-------|
+| Username | `gherkintester1` |
+| Email | `razasultan.gherkintest1@gmail.com` |
+| Password | `GherkinTest123!` |
+
+This is the same account used by `integration_test/app_test.dart`. Don't use it against PROD.
+
 ### Login error: `Database error querying schema`
 
 This comes from **Supabase Auth** (HTTP 500), not from Flutter. It often happens when a user in `auth.users` was created with **SQL** and token columns (`confirmation_token`, `recovery_token`, etc.) are **NULL** instead of `''`.
