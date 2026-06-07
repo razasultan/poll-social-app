@@ -7,6 +7,29 @@ A social polling platform where users create polls (text, image, video), follow 
 - **Flutter** (mobile, web, desktop)
 - **Supabase** (auth, Postgres, realtime)
 
+## Guest browsing
+
+The app is **guest-first**: it never forces a login at startup. Anyone can open
+the app and browse without an account.
+
+**Without an account you can:**
+- Browse the **Latest** and **Trending** feeds
+- Search polls, users, hashtags, and topics
+- Open a poll's detail screen and read its comments
+- View user profiles
+
+**Logging in is required to interact:**
+- Voting, liking, and commenting on polls
+- Creating polls
+- Following / unfollowing users
+- Viewing the **For You** feed, notifications, and settings
+
+When a guest taps a gated action, a **"Login required"** dialog appears
+(Cancel / Login / Sign up) — see `lib/widgets/auth_required_dialog.dart`.
+Screens like Create Poll, Notifications, Settings, and your own Profile show a
+dedicated login prompt instead of the dialog when opened directly while signed
+out.
+
 ## Environments (DEV / PROD)
 
 Supabase URL and anon key are **not** hardcoded. They are supplied at build/run time with `--dart-define`:
