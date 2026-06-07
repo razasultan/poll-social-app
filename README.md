@@ -38,6 +38,33 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF
 ```
 
+### Run DEV / PROD via shortcuts
+
+To avoid retyping the `--dart-define` flags, use the wrapper scripts in `scripts/`
+(PowerShell) or the `Makefile` targets (bash / WSL / Git Bash / `make`):
+
+```powershell
+# PowerShell
+.\scripts\run_dev.ps1                        # debug, default device
+.\scripts\run_dev.ps1 -Release -Device windows
+.\scripts\run_prod.ps1                       # requires the PROD anon key to be filled in first
+```
+
+```bash
+# Makefile (pass extra flutter args via FLUTTER_ARGS)
+make run-dev
+make run-dev FLUTTER_ARGS="-d windows"
+make run-dev-release
+make run-prod            # requires SUPABASE_PROD_ANON_KEY to be filled in first
+make run-prod-release
+```
+
+The PROD anon key is left as a placeholder (`YOUR_PROD_ANON_KEY`) in both
+`scripts/run_prod.ps1` and the `Makefile` — fill it in from the Supabase
+dashboard (**poll-social-app** project → Settings → API → Publishable key) or
+the Notion doc before using the PROD shortcuts. Note the PROD project may show
+as paused/inactive and need to be resumed first.
+
 ### Run PROD
 
 Replace placeholders with your production project values (launch config **Flutter PROD** or CLI):
