@@ -93,6 +93,18 @@ A seeded, confirmed account on the **DEV** Supabase project — copy/paste strai
 
 This is the same account used by `integration_test/app_test.dart`. Don't use it against PROD.
 
+### Test account (manual testing, PROD only)
+
+A seeded, confirmed account on the **PROD** Supabase project (`poll-social-app`) — copy/paste straight into the login screen:
+
+| Field | Value |
+|-------|-------|
+| Username | `prodtester1` |
+| Email | `razasultan.prodtest1@gmail.com` |
+| Password | `ProdTest123!` |
+
+Verified working end-to-end (loads the live Poll Feed). Don't use it against DEV — the two projects don't share users.
+
 ### Login error: `Database error querying schema`
 
 This comes from **Supabase Auth** (HTTP 500), not from Flutter. It often happens when a user in `auth.users` was created with **SQL** and token columns (`confirmation_token`, `recovery_token`, etc.) are **NULL** instead of `''`.
