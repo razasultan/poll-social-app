@@ -5,6 +5,7 @@ import '../services/moderation_service.dart';
 import '../services/poll_service.dart';
 import '../services/social_service.dart';
 import '../utils/profile_navigation.dart';
+import '../widgets/auth_required_dialog.dart';
 import '../widgets/poll_card.dart';
 
 /// Full poll view with comments and report action.
@@ -132,7 +133,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   Future<void> _submitComment() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _snack('Sign in to comment.');
+      await showAuthRequiredDialog(context);
       return;
     }
 
@@ -166,7 +167,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   Future<void> _reportPoll() async {
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _snack('Sign in to report content.');
+      await showAuthRequiredDialog(context);
       return;
     }
 

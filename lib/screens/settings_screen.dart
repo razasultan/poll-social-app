@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
 import '../services/moderation_service.dart';
 import '../services/profile_service.dart';
+import 'auth/login_screen.dart';
+import 'auth/signup_screen.dart';
 
 const String _kAppVersion = '0.1.0';
 
@@ -23,6 +27,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _profileLoading = false;
   String? _profileError;
 
+  StreamSubscription<AuthState>? _authSubscription;
+
   User? get _user => Supabase.instance.client.auth.currentUser;
 
   @override
@@ -33,6 +39,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _profileLoading = true;
       _loadProfile(uid);
     }
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (!mounted) return;
+      final uid = data.session?.user.id;
+      if (uid != null && _profile == null && !_profileLoading) {
+        setState(() => _profileLoading = true);
+        _loadProfile(uid);
+      } else {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadProfile(String userId) async {
@@ -159,6 +181,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final cs = theme.colorScheme;
     final email = _user?.email;
     final signedIn = _user != null;
+
+    if (!signedIn) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Settings')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.settings_outlined, size: 48, color: cs.onSurfaceVariant),
+                const SizedBox(height: 16),
+                Text(
+                  'Log in to manage your account and settings',
+                  style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      ),
+                      child: const Text('Login'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SignupScreen()),
+                      ),
+                      child: const Text('Sign up'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),

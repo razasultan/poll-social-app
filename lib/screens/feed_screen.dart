@@ -33,19 +33,33 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   late TabController _tabController;
   late final FeedService _feedService;
   late final NotificationService _notificationService;
+  late bool _isGuest;
 
   int _unreadNotificationCount = 0;
   RealtimeChannel? _notificationBadgeChannel;
   StreamSubscription<AuthState>? _authSubscription;
+
+  int get _tabCount => _isGuest ? 2 : 3;
 
   @override
   void initState() {
     super.initState();
     _feedService = FeedService();
     _notificationService = NotificationService();
-    _tabController = TabController(length: 3, vsync: this);
+    _isGuest = Supabase.instance.client.auth.currentUser == null;
+    _tabController = TabController(length: _tabCount, vsync: this);
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
-      _syncNotificationBadge(data.session?.user);
+      final user = data.session?.user;
+      _syncNotificationBadge(user);
+      final isGuestNow = user == null;
+      if (isGuestNow != _isGuest) {
+        final oldController = _tabController;
+        setState(() {
+          _isGuest = isGuestNow;
+          _tabController = TabController(length: _tabCount, vsync: this);
+        });
+        oldController.dispose();
+      }
       widget.feedReloadToken?.value++;
     });
     _syncNotificationBadge(Supabase.instance.client.auth.currentUser);
@@ -246,20 +260,30 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         ),
         bottom: TabBar(
           controller: _tabController,
-          tabs: const [
-            Tab(text: 'For You'),
-            Tab(text: 'Latest'),
-            Tab(text: 'Trending'),
-          ],
+          tabs: _isGuest
+              ? const [
+                  Tab(text: 'Latest'),
+                  Tab(text: 'Trending'),
+                ]
+              : const [
+                  Tab(text: 'For You'),
+                  Tab(text: 'Latest'),
+                  Tab(text: 'Trending'),
+                ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [
-          _buildForYouTab(),
-          _buildLatestTab(),
-          _buildTrendingTab(),
-        ],
+        children: _isGuest
+            ? [
+                _buildLatestTab(),
+                _buildTrendingTab(),
+              ]
+            : [
+                _buildForYouTab(),
+                _buildLatestTab(),
+                _buildTrendingTab(),
+              ],
       ),
     );
   }

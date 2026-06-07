@@ -175,8 +175,9 @@ class _SignupScreenState extends State<SignupScreen> {
       if (session == null) {
         _snack('Account created! Check your inbox to confirm your email, then log in.');
         Navigator.of(context).popUntil((route) => route.isFirst);
+      } else if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
-      // Else: session is active; AuthGate switches to MainShell on auth stream.
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);

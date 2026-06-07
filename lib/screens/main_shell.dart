@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/notification_service.dart';
+import 'auth/login_screen.dart';
+import 'auth/signup_screen.dart';
 import 'create_poll_screen.dart';
 import 'feed_screen.dart';
 import 'notifications_screen.dart';
@@ -43,7 +45,14 @@ class _MainShellState extends State<MainShell> {
     super.initState();
     _notificationService = NotificationService();
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-      (data) => _syncShellNotificationBadge(data.session?.user),
+      (data) {
+        final user = data.session?.user;
+        _syncShellNotificationBadge(user);
+        final itemCount = user == null ? 4 : 5;
+        if (_selectedIndex >= itemCount && mounted) {
+          setState(() => _selectedIndex = 0);
+        }
+      },
     );
     _syncShellNotificationBadge(Supabase.instance.client.auth.currentUser);
   }
@@ -147,69 +156,110 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildProfileTab() {
-    final user = Supabase.instance.client.auth.currentUser;
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+  Widget _buildProfileTab(User? user) {
     if (user == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'Please sign in',
-            style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return _buildLoginRequiredView(
+        message: 'Log in to view and edit your profile',
       );
     }
     return ProfileScreen(userId: user.id, reloadToken: _profileReloadToken);
   }
 
+  Widget _buildLoginRequiredView({required String message}) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_outline_rounded, size: 48, color: cs.onSurfaceVariant),
+            const SizedBox(height: 16),
+            Text(
+              message,
+              style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  ),
+                  child: const Text('Login'),
+                ),
+                const SizedBox(width: 12),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SignupScreen()),
+                  ),
+                  child: const Text('Sign up'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = Supabase.instance.client.auth.currentUser;
+    final isGuest = user == null;
+
+    final stackChildren = <Widget>[
+      FeedScreen(feedReloadToken: _feedReloadToken),
+      const SearchScreen(),
+      if (!isGuest) const NotificationsScreen(),
+      _buildProfileTab(user),
+    ];
+
+    final navItems = <BottomNavigationBarItem>[
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home_rounded),
+        label: 'Home',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.search_rounded),
+        activeIcon: Icon(Icons.search_rounded),
+        label: 'Search',
+      ),
+      BottomNavigationBarItem(
+        icon: _composeNavIcon(context),
+        activeIcon: _composeNavIcon(context),
+        label: 'Create',
+      ),
+      if (!isGuest)
+        BottomNavigationBarItem(
+          icon: _notificationsNavIcon(active: false),
+          activeIcon: _notificationsNavIcon(active: true),
+          label: 'Notifications',
+        ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.person_outline_rounded),
+        activeIcon: Icon(Icons.person_rounded),
+        label: 'Profile',
+      ),
+    ];
+
+    final selectedIndex = _selectedIndex < navItems.length ? _selectedIndex : 0;
+
     return Scaffold(
       body: IndexedStack(
         index: _stackIndex,
         sizing: StackFit.expand,
-        children: [
-          FeedScreen(feedReloadToken: _feedReloadToken),
-          const SearchScreen(),
-          const NotificationsScreen(),
-          _buildProfileTab(),
-        ],
+        children: stackChildren,
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        currentIndex: _selectedIndex,
+        currentIndex: selectedIndex,
         onTap: _onBottomNavTap,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home_rounded),
-            label: 'Home',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.search_rounded),
-            activeIcon: Icon(Icons.search_rounded),
-            label: 'Search',
-          ),
-          BottomNavigationBarItem(
-            icon: _composeNavIcon(context),
-            activeIcon: _composeNavIcon(context),
-            label: 'Create',
-          ),
-          BottomNavigationBarItem(
-            icon: _notificationsNavIcon(active: false),
-            activeIcon: _notificationsNavIcon(active: true),
-            label: 'Notifications',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline_rounded),
-            activeIcon: Icon(Icons.person_rounded),
-            label: 'Profile',
-          ),
-        ],
+        items: navItems,
       ),
     );
   }

@@ -64,7 +64,9 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordCtrl.text,
       );
       if (!mounted) return;
-      // AuthGate switches to MainShell on auth stream.
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
       final parts = <String>[
@@ -224,7 +226,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed: _loading
                               ? null
                               : () {
-                                  Navigator.of(context).pushNamed(SignupScreen.routeName);
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(builder: (_) => const SignupScreen()),
+                                  );
                                 },
                           child: const Text('Create an account'),
                         ),

@@ -8,6 +8,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import '../services/poll_service.dart';
 import '../services/search_service.dart';
+import 'auth/login_screen.dart';
+import 'auth/signup_screen.dart';
 
 /// Parses free-typed hashtag text (space/comma separated, optional leading
 /// `#`) into a deduped, lowercased list of tag strings. Exposed for testing.
@@ -128,6 +130,8 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
 
   bool _submitting = false;
 
+  StreamSubscription<AuthState>? _authSubscription;
+
   static const List<(String, String)> _visibilityChoices = [
     ('public', 'Public'),
     ('followers', 'Followers'),
@@ -153,10 +157,14 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     super.initState();
     _optionCtrls.add(TextEditingController());
     _optionCtrls.add(TextEditingController());
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _topicSearchDebounce?.cancel();
     _questionCtrl.dispose();
     _descriptionCtrl.dispose();
@@ -456,8 +464,63 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     }
   }
 
+  Widget _buildGuestPrompt(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
+        title: const Text('Create Poll'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.how_to_vote_outlined, size: 48, color: cs.onSurfaceVariant),
+              const SizedBox(height: 16),
+              Text(
+                'Create an account to publish polls',
+                style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    ),
+                    child: const Text('Login'),
+                  ),
+                  const SizedBox(width: 12),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const SignupScreen()),
+                    ),
+                    child: const Text('Sign up'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = _authService.currentUser ?? Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      return _buildGuestPrompt(context);
+    }
+
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/social_service.dart';
 import '../services/vote_service.dart';
 import '../utils/profile_navigation.dart';
+import 'auth_required_dialog.dart';
 
 /// Feed card for a poll row from Supabase (`polls` select with nested relations).
 class PollCard extends StatefulWidget {
@@ -204,7 +205,7 @@ class _PollCardState extends State<PollCard> {
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _showMessage('Sign in to vote.');
+      await showAuthRequiredDialog(context);
       return;
     }
 
@@ -255,7 +256,7 @@ class _PollCardState extends State<PollCard> {
 
     final user = Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _showMessage('Sign in to like polls.');
+      await showAuthRequiredDialog(context);
       return;
     }
 
@@ -288,6 +289,15 @@ class _PollCardState extends State<PollCard> {
     } finally {
       if (mounted) setState(() => _likeLoading = false);
     }
+  }
+
+  void _onCommentTap() {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      showAuthRequiredDialog(context);
+      return;
+    }
+    widget.onPollTap?.call();
   }
 
   String _friendlyError(String message) {
@@ -522,6 +532,7 @@ class _PollCardState extends State<PollCard> {
                   liked: _liked,
                   likeLoading: _likeLoading,
                   onLikeTap: _toggleLike,
+                  onCommentTap: _onCommentTap,
                 ),
               ],
             ),
@@ -761,6 +772,7 @@ class EngagementRow extends StatelessWidget {
     required this.liked,
     required this.likeLoading,
     required this.onLikeTap,
+    this.onCommentTap,
   });
 
   final int votesCount;
@@ -770,6 +782,7 @@ class EngagementRow extends StatelessWidget {
   final bool liked;
   final bool likeLoading;
   final VoidCallback onLikeTap;
+  final VoidCallback? onCommentTap;
 
   static const double _iconSize = 20;
 
@@ -805,7 +818,7 @@ class EngagementRow extends StatelessWidget {
             count: commentsCount,
             labelStyle: labelStyle,
             hoverColor: _replyColor,
-            onTap: () {},
+            onTap: onCommentTap ?? () {},
           ),
           const SizedBox(width: 4),
           _EngagementInk(

@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
 import '../services/social_service.dart';
+import '../widgets/auth_required_dialog.dart';
 import '../widgets/poll_card.dart';
 import 'poll_detail_screen.dart';
 import 'settings_screen.dart';
@@ -229,7 +230,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _toggleFollow() async {
     final me = _currentUserId;
-    if (me == null || _isOwnProfile || _followBusy) return;
+    if (me == null) {
+      await showAuthRequiredDialog(context);
+      return;
+    }
+    if (_isOwnProfile || _followBusy) return;
 
     setState(() => _followBusy = true);
     try {
@@ -340,7 +345,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         followers: _followersCount,
                         following: _followingCount,
                         pollCount: _polls.length,
-                        showFollow: !_isOwnProfile && _currentUserId != null,
+                        showFollow: !_isOwnProfile,
                         isFollowing: _isFollowing,
                         followBusy: _followBusy,
                         onFollowTap: _toggleFollow,

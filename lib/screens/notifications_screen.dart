@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/notification_service.dart';
+import 'auth/login_screen.dart';
+import 'auth/signup_screen.dart';
 import 'poll_detail_screen.dart';
 
 /// Lists notifications for the signed-in user.
@@ -243,10 +245,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Please sign in',
-                  style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.notifications_off_outlined, size: 48, color: cs.onSurfaceVariant),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Login to view notifications',
+                      style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                          ),
+                          child: const Text('Login'),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const SignupScreen()),
+                          ),
+                          child: const Text('Sign up'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
             )
