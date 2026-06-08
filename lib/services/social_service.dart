@@ -121,10 +121,15 @@ class SocialService {
             question,
             description,
             created_at,
+            expires_at,
+            visibility,
+            share_slug,
+            allow_embedding,
             country,
             city,
-            profiles(username, avatar_url),
-            poll_options(id, option_text, option_order),
+            profiles(username, display_name, avatar_url),
+            poll_options(id, option_text, option_order, media_url, media_type),
+            poll_media(media_type, media_url, thumbnail_url),
             poll_analytics(votes_count, likes_count, comments_count, shares_count)
           )
         ''')
@@ -149,7 +154,7 @@ class SocialService {
   Future<List<dynamic>> getComments(String pollId) async {
     return await _supabase
         .from('comments')
-        .select('*, profiles(username, avatar_url)')
+        .select('*, profiles(username, display_name, avatar_url)')
         .eq('poll_id', pollId)
         .eq('status', 'active')
         .order('created_at', ascending: true);

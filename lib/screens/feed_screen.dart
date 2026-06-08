@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
 import '../services/seen_polls_store.dart';
@@ -30,7 +31,8 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateMixin {
+class _FeedScreenState extends State<FeedScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
   late final FeedService _feedService;
   late final NotificationService _notificationService;
@@ -49,7 +51,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
     _notificationService = NotificationService();
     _isGuest = Supabase.instance.client.auth.currentUser == null;
     _tabController = TabController(length: _tabCount, vsync: this);
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
       final user = data.session?.user;
       _syncNotificationBadge(user);
       final isGuestNow = user == null;
@@ -97,7 +101,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       value: user.id,
     );
 
-    final channel = Supabase.instance.client.channel('feed-notifications-${user.id}');
+    final channel = Supabase.instance.client.channel(
+      'feed-notifications-${user.id}',
+    );
     channel
         .onPostgresChanges(
           schema: 'public',
@@ -134,7 +140,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
                   child: Text(
                     'Login to see personalized feed',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -158,7 +166,8 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           excludePollIds: exclude,
         );
       },
-      onPollIdsBecameVisible: (ids) => SeenPollsStore.instance.markPollsSeen(ids),
+      onPollIdsBecameVisible: (ids) =>
+          SeenPollsStore.instance.markPollsSeen(ids),
     );
   }
 
@@ -202,9 +211,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
               );
               if (!context.mounted) return;
               if (created == true) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Poll published')),
-                );
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(const SnackBar(content: Text('Poll published')));
                 widget.feedReloadToken?.value++;
               }
             },
@@ -217,7 +226,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           Badge(
             isLabelVisible: _unreadNotificationCount > 0,
             label: Text(
-              _unreadNotificationCount > 99 ? '99+' : '$_unreadNotificationCount',
+              _unreadNotificationCount > 99
+                  ? '99+'
+                  : '$_unreadNotificationCount',
               style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
             ),
             child: IconButton(
@@ -228,7 +239,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
                   context,
                   onAuthenticated: () async {
                     await Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(builder: (context) => const NotificationsScreen()),
+                      MaterialPageRoute<void>(
+                        builder: (context) => const NotificationsScreen(),
+                      ),
                     );
                     if (!context.mounted) return;
                     final u = Supabase.instance.client.auth.currentUser;
@@ -243,7 +256,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
             icon: const Icon(Icons.search_rounded),
             onPressed: () {
               Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(builder: (context) => const SearchScreen()),
+                MaterialPageRoute<void>(
+                  builder: (context) => const SearchScreen(),
+                ),
               );
             },
           ),
@@ -252,7 +267,9 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
             icon: const Icon(Icons.settings_outlined),
             onPressed: () {
               Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(builder: (context) => const SettingsScreen()),
+                MaterialPageRoute<void>(
+                  builder: (context) => const SettingsScreen(),
+                ),
               );
             },
           ),
@@ -272,10 +289,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
         bottom: TabBar(
           controller: _tabController,
           tabs: _isGuest
-              ? const [
-                  Tab(text: 'Latest'),
-                  Tab(text: 'Trending'),
-                ]
+              ? const [Tab(text: 'Latest'), Tab(text: 'Trending')]
               : const [
                   Tab(text: 'For You'),
                   Tab(text: 'Latest'),
@@ -283,18 +297,13 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
                 ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: _isGuest
-            ? [
-                _buildLatestTab(),
-                _buildTrendingTab(),
-              ]
-            : [
-                _buildForYouTab(),
-                _buildLatestTab(),
-                _buildTrendingTab(),
-              ],
+      body: TimelineColumn(
+        child: TabBarView(
+          controller: _tabController,
+          children: _isGuest
+              ? [_buildLatestTab(), _buildTrendingTab()]
+              : [_buildForYouTab(), _buildLatestTab(), _buildTrendingTab()],
+        ),
       ),
     );
   }

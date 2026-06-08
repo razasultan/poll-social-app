@@ -29,6 +29,19 @@ List<String> parseHashtagInput(String input, {Set<String> existing = const {}}) 
   return out;
 }
 
+/// Indices into [rawTexts] whose trimmed value is non-empty, in submission
+/// order — lets the screen map a submitted option's `option_order` (1-based
+/// position among non-blank options) back to its original per-option media
+/// slot, since blank option fields are dropped before publishing. Exposed for
+/// testing.
+List<int> nonEmptyOptionIndices(List<String> rawTexts) {
+  final indices = <int>[];
+  for (var i = 0; i < rawTexts.length; i++) {
+    if (rawTexts[i].trim().isNotEmpty) indices.add(i);
+  }
+  return indices;
+}
+
 const String expirationNone = 'none';
 const String expiration1h = '1h';
 const String expiration24h = '24h';
@@ -107,6 +120,11 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
   final TextEditingController _hashtagCtrl = TextEditingController();
   final List<TextEditingController> _optionCtrls = <TextEditingController>[];
 
+  /// Per-option media, kept in lockstep with [_optionCtrls] by index.
+  final List<XFile?> _optionMedia = <XFile?>[];
+  final List<Uint8List?> _optionMediaBytes = <Uint8List?>[];
+  final List<String?> _optionMediaType = <String?>[];
+
   String _visibility = 'public';
   String _expirationPreset = expirationNone;
 
@@ -155,8 +173,8 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
   @override
   void initState() {
     super.initState();
-    _optionCtrls.add(TextEditingController());
-    _optionCtrls.add(TextEditingController());
+    _addOptionSlot();
+    _addOptionSlot();
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
       if (mounted) setState(() {});
     });
@@ -181,10 +199,6 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
   void _snack(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  List<String> _trimmedOptionTexts() {
-    return _optionCtrls.map((c) => c.text.trim()).where((t) => t.isNotEmpty).toList();
   }
 
   bool _validateForSubmit() {
@@ -258,12 +272,20 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     setState(() => _customExpiresAt = combined);
   }
 
+  /// Appends a new option text controller plus its (initially empty) media slots.
+  void _addOptionSlot() {
+    _optionCtrls.add(TextEditingController());
+    _optionMedia.add(null);
+    _optionMediaBytes.add(null);
+    _optionMediaType.add(null);
+  }
+
   void _addOption() {
     if (_optionCtrls.length >= 5) {
       _snack('You can add at most five options.');
       return;
     }
-    setState(() => _optionCtrls.add(TextEditingController()));
+    setState(_addOptionSlot);
   }
 
   void _removeOption(int index) {
@@ -273,7 +295,36 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     }
     final removed = _optionCtrls.removeAt(index);
     removed.dispose();
+    _optionMedia.removeAt(index);
+    _optionMediaBytes.removeAt(index);
+    _optionMediaType.removeAt(index);
     setState(() {});
+  }
+
+  Future<void> _pickOptionMedia(int index, String mediaType) async {
+    try {
+      final XFile? file = mediaType == 'video'
+          ? await _imagePicker.pickVideo(source: ImageSource.gallery)
+          : await _imagePicker.pickImage(source: ImageSource.gallery);
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _optionMedia[index] = file;
+        _optionMediaBytes[index] = bytes;
+        _optionMediaType[index] = mediaType;
+      });
+    } catch (_) {
+      _snack('Could not pick media. Try again.');
+    }
+  }
+
+  void _removeOptionMedia(int index) {
+    setState(() {
+      _optionMedia[index] = null;
+      _optionMediaBytes[index] = null;
+      _optionMediaType[index] = null;
+    });
   }
 
   void _onTopicSearchChanged(String query) {
@@ -391,7 +442,9 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       return;
     }
 
-    final options = _trimmedOptionTexts();
+    final rawOptionTexts = _optionCtrls.map((c) => c.text).toList();
+    final optionIndices = nonEmptyOptionIndices(rawOptionTexts);
+    final options = [for (final i in optionIndices) rawOptionTexts[i].trim()];
     final country = _countryCtrl.text.trim();
     final city = _cityCtrl.text.trim();
 
@@ -410,7 +463,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       final pollId = poll['id']?.toString();
 
       if (pollId != null) {
-        await _attachExtras(userId: user.id, pollId: pollId);
+        await _attachExtras(userId: user.id, pollId: pollId, optionIndices: optionIndices);
       }
 
       if (!mounted) return;
@@ -425,8 +478,16 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
   }
 
   /// Attaches topics, hashtags, and media to a poll that was already created
-  /// successfully. Failures here are non-fatal — the poll exists regardless.
-  Future<void> _attachExtras({required String userId, required String pollId}) async {
+  /// successfully. [optionIndices] maps each submitted option's 1-based
+  /// `option_order` (its position in this list) back to its original
+  /// `_optionCtrls`/`_optionMedia` slot, since blank option fields were
+  /// dropped before publishing. Failures here are non-fatal — the poll and
+  /// its options exist regardless.
+  Future<void> _attachExtras({
+    required String userId,
+    required String pollId,
+    required List<int> optionIndices,
+  }) async {
     if (_selectedTopics.isNotEmpty) {
       try {
         await _pollService.attachTopics(
@@ -461,6 +522,30 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       } catch (_) {
         _snack('Poll published, but the media could not be uploaded.');
       }
+    }
+
+    var optionMediaFailed = false;
+    for (var order = 0; order < optionIndices.length; order++) {
+      final slot = optionIndices[order];
+      final optBytes = _optionMediaBytes[slot];
+      final optType = _optionMediaType[slot];
+      final optFile = _optionMedia[slot];
+      if (optBytes == null || optType == null || optFile == null) continue;
+      try {
+        await _pollService.uploadOptionMedia(
+          userId: userId,
+          pollId: pollId,
+          optionOrder: order + 1,
+          bytes: optBytes,
+          fileName: optFile.name,
+          mediaType: optType,
+        );
+      } catch (_) {
+        optionMediaFailed = true;
+      }
+    }
+    if (optionMediaFailed) {
+      _snack('Poll published, but some option media could not be uploaded.');
     }
   }
 
@@ -559,19 +644,22 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
         padding: EdgeInsets.fromLTRB(20, 16, 20, 24 + bottomInset),
         children: [
             TextFormField(
-              controller: _questionCtrl,
+              controller: _descriptionCtrl,
               textCapitalization: TextCapitalization.sentences,
-              decoration: _decoration('Question', hint: 'What do you want to ask?'),
-              maxLines: 2,
+              decoration: _decoration(
+                'Post text (optional)',
+                hint: 'Add context, opinion, or story around your poll...',
+              ),
+              maxLines: 4,
               minLines: 1,
               textInputAction: TextInputAction.next,
             ),
             const SizedBox(height: 14),
             TextFormField(
-              controller: _descriptionCtrl,
+              controller: _questionCtrl,
               textCapitalization: TextCapitalization.sentences,
-              decoration: _decoration('Description (optional)', hint: 'Add context'),
-              maxLines: 3,
+              decoration: _decoration('Question', hint: 'What do you want to ask?'),
+              maxLines: 2,
               minLines: 1,
               textInputAction: TextInputAction.next,
             ),
@@ -591,24 +679,96 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
             for (var i = 0; i < _optionCtrls.length; i++)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _optionCtrls[i],
-                        decoration: _decoration('Option ${i + 1}'),
-                        textCapitalization: TextCapitalization.sentences,
-                        textInputAction:
-                            i == _optionCtrls.length - 1 ? TextInputAction.done : TextInputAction.next,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: _optionCtrls[i],
+                            decoration: _decoration('Option ${i + 1}'),
+                            textCapitalization: TextCapitalization.sentences,
+                            textInputAction:
+                                i == _optionCtrls.length - 1 ? TextInputAction.done : TextInputAction.next,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          tooltip: 'Remove option',
+                          onPressed: _optionCtrls.length > 2 ? () => _removeOption(i) : null,
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                      ],
+                    ),
+                    if (_optionMediaBytes[i] != null && _optionMediaType[i] == 'image')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.memory(
+                            _optionMediaBytes[i]!,
+                            height: 120,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      )
+                    else if (_optionMedia[i] != null && _optionMediaType[i] == 'video')
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Container(
+                          height: 56,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          alignment: Alignment.centerLeft,
+                          child: Row(
+                            children: [
+                              const Icon(Icons.videocam_outlined, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _optionMedia[i]!.name,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Remove option',
-                      onPressed: _optionCtrls.length > 2 ? () => _removeOption(i) : null,
-                      icon: const Icon(Icons.remove_circle_outline),
-                    ),
+                    if (_optionMedia[i] != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton.icon(
+                          onPressed: () => _removeOptionMedia(i),
+                          icon: const Icon(Icons.close, size: 18),
+                          label: const Text('Remove media'),
+                        ),
+                      )
+                    else
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Wrap(
+                          spacing: 8,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _pickOptionMedia(i, 'image'),
+                              icon: const Icon(Icons.image_outlined, size: 18),
+                              label: const Text('Add photo'),
+                            ),
+                            TextButton.icon(
+                              onPressed: () => _pickOptionMedia(i, 'video'),
+                              icon: const Icon(Icons.videocam_outlined, size: 18),
+                              label: const Text('Add video'),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),

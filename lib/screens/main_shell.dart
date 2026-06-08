@@ -212,6 +212,48 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  /// Width above which the shell switches from a bottom nav bar (mobile/narrow
+  /// web) to a side [NavigationRail] (desktop/wide web), mirroring how X swaps
+  /// its mobile tab bar for a left-hand nav column on wider viewports.
+  static const double _wideLayoutBreakpoint = 700;
+
+  /// Shared icon/label data for each destination, fed into both the
+  /// [BottomNavigationBar] (narrow) and [NavigationRail] (wide) so the two
+  /// layouts always stay in sync.
+  List<({Widget icon, Widget activeIcon, String label})> _navEntries(
+    BuildContext context,
+    bool isGuest,
+  ) {
+    return [
+      const (
+        icon: Icon(Icons.home_outlined),
+        activeIcon: Icon(Icons.home_rounded),
+        label: 'Home',
+      ),
+      const (
+        icon: Icon(Icons.search_rounded),
+        activeIcon: Icon(Icons.search_rounded),
+        label: 'Search',
+      ),
+      (
+        icon: _composeNavIcon(context),
+        activeIcon: _composeNavIcon(context),
+        label: 'Create',
+      ),
+      if (!isGuest)
+        (
+          icon: _notificationsNavIcon(active: false),
+          activeIcon: _notificationsNavIcon(active: true),
+          label: 'Notifications',
+        ),
+      const (
+        icon: Icon(Icons.person_outline_rounded),
+        activeIcon: Icon(Icons.person_rounded),
+        label: 'Profile',
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = Supabase.instance.client.auth.currentUser;
@@ -224,49 +266,60 @@ class _MainShellState extends State<MainShell> {
       _buildProfileTab(user),
     ];
 
-    final navItems = <BottomNavigationBarItem>[
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.home_outlined),
-        activeIcon: Icon(Icons.home_rounded),
-        label: 'Home',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.search_rounded),
-        activeIcon: Icon(Icons.search_rounded),
-        label: 'Search',
-      ),
-      BottomNavigationBarItem(
-        icon: _composeNavIcon(context),
-        activeIcon: _composeNavIcon(context),
-        label: 'Create',
-      ),
-      if (!isGuest)
-        BottomNavigationBarItem(
-          icon: _notificationsNavIcon(active: false),
-          activeIcon: _notificationsNavIcon(active: true),
-          label: 'Notifications',
-        ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.person_outline_rounded),
-        activeIcon: Icon(Icons.person_rounded),
-        label: 'Profile',
-      ),
-    ];
+    final entries = _navEntries(context, isGuest);
+    final selectedIndex = _selectedIndex < entries.length ? _selectedIndex : 0;
 
-    final selectedIndex = _selectedIndex < navItems.length ? _selectedIndex : 0;
+    final body = IndexedStack(
+      index: _stackIndex,
+      sizing: StackFit.expand,
+      children: stackChildren,
+    );
 
-    return Scaffold(
-      body: IndexedStack(
-        index: _stackIndex,
-        sizing: StackFit.expand,
-        children: stackChildren,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: selectedIndex,
-        onTap: _onBottomNavTap,
-        items: navItems,
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= _wideLayoutBreakpoint) {
+          final cs = Theme.of(context).colorScheme;
+          return Scaffold(
+            body: Row(
+              children: [
+                NavigationRail(
+                  selectedIndex: selectedIndex,
+                  onDestinationSelected: _onBottomNavTap,
+                  labelType: NavigationRailLabelType.all,
+                  backgroundColor: cs.surface,
+                  destinations: [
+                    for (final entry in entries)
+                      NavigationRailDestination(
+                        icon: entry.icon,
+                        selectedIcon: entry.activeIcon,
+                        label: Text(entry.label),
+                      ),
+                  ],
+                ),
+                VerticalDivider(width: 1, color: cs.outlineVariant),
+                Expanded(child: body),
+              ],
+            ),
+          );
+        }
+
+        return Scaffold(
+          body: body,
+          bottomNavigationBar: BottomNavigationBar(
+            type: BottomNavigationBarType.fixed,
+            currentIndex: selectedIndex,
+            onTap: _onBottomNavTap,
+            items: [
+              for (final entry in entries)
+                BottomNavigationBarItem(
+                  icon: entry.icon,
+                  activeIcon: entry.activeIcon,
+                  label: entry.label,
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -4,6 +4,20 @@ import 'package:poll_social_app/screens/create_poll_screen.dart';
 void main() {
   final now = DateTime(2026, 6, 7, 12);
 
+  group('nonEmptyOptionIndices', () {
+    test('returns indices of non-blank options in order', () {
+      expect(nonEmptyOptionIndices(['Coffee', '', 'Tea', '   ']), [0, 2]);
+    });
+
+    test('returns all indices when none are blank', () {
+      expect(nonEmptyOptionIndices(['A', 'B', 'C']), [0, 1, 2]);
+    });
+
+    test('returns an empty list when all options are blank', () {
+      expect(nonEmptyOptionIndices(['', '  ', '']), isEmpty);
+    });
+  });
+
   group('parseHashtagInput', () {
     test('splits on whitespace and commas, strips leading #, lowercases', () {
       expect(

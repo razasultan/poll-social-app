@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/widgets/timeline_column.dart';
 import '../services/moderation_service.dart';
 import '../services/poll_service.dart';
 import '../services/social_service.dart';
 import '../utils/profile_navigation.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
+import '../widgets/poll_result_chart.dart';
+import 'embed_poll_screen.dart' show embedSnippetForShareSlug;
 
 /// Full poll view with comments and report action.
 class PollDetailScreen extends StatefulWidget {
@@ -181,9 +185,9 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
             reason: 'inappropriate_content',
           );
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Report submitted')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Report submitted')));
         } on PostgrestException catch (e) {
           _snack(e.message.isNotEmpty ? e.message : 'Could not submit report.');
         } catch (_) {
@@ -193,9 +197,29 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     );
   }
 
+  bool get _embeddable {
+    final poll = _poll;
+    if (poll == null) return false;
+    final slug = poll['share_slug']?.toString().trim();
+    return (slug != null && slug.isNotEmpty) &&
+        poll['allow_embedding'] != false;
+  }
+
+  Future<void> _copyEmbedCode() async {
+    final slug = _poll?['share_slug']?.toString().trim();
+    if (slug == null || slug.isEmpty) return;
+    await Clipboard.setData(
+      ClipboardData(text: embedSnippetForShareSlug(slug)),
+    );
+    if (!mounted) return;
+    _snack('Embed code copied to clipboard.');
+  }
+
   void _snack(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String? _commentOwnerId(Map<String, dynamic> comment) =>
@@ -206,7 +230,9 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     final commentId = comment['id']?.toString();
     if (user == null || commentId == null || commentId.isEmpty) return;
 
-    final ctrl = TextEditingController(text: comment['comment_text']?.toString() ?? '');
+    final ctrl = TextEditingController(
+      text: comment['comment_text']?.toString() ?? '',
+    );
     final saved = await showDialog<String>(
       context: context,
       builder: (ctx) {
@@ -218,9 +244,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
             minLines: 2,
             maxLines: 6,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
           actions: [
             TextButton(
@@ -289,10 +313,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
 
     setState(() => _busyCommentId = commentId);
     try {
-      await _socialService.deleteComment(
-        commentId: commentId,
-        userId: user.id,
-      );
+      await _socialService.deleteComment(commentId: commentId, userId: user.id);
       if (!mounted) return;
       await _load(showFullLoading: false);
       if (!mounted) return;
@@ -320,9 +341,15 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
           PopupMenuButton<String>(
             onSelected: (value) {
               if (value == 'report') _reportPoll();
+              if (value == 'embed') _copyEmbedCode();
             },
-            itemBuilder: (context) => const [
-              PopupMenuItem<String>(
+            itemBuilder: (context) => [
+              if (_embeddable)
+                const PopupMenuItem<String>(
+                  value: 'embed',
+                  child: Text('Copy embed code'),
+                ),
+              const PopupMenuItem<String>(
                 value: 'report',
                 child: Text('Report Poll'),
               ),
@@ -333,139 +360,157 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.error_outline_rounded, size: 48, color: cs.error),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: 20),
-                        FilledButton.tonal(
-                          onPressed: _load,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              : Column(
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Expanded(
-                      child: ListView(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        children: [
-                          PollCard(
-                            poll: _poll!,
-                            showTrendingScore: false,
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
-                            child: Text(
-                              'Comments',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (_comments.isEmpty)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              child: Text(
-                                'No comments yet',
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            )
-                          else
-                            ..._comments.map(
-                              (c) {
-                                final cid = c['id']?.toString();
-                                final ownerId = _commentOwnerId(c);
-                                final isOwner =
-                                    currentUserId != null &&
-                                    ownerId != null &&
-                                    ownerId == currentUserId;
-                                return _CommentTile(
-                                  commentUserId: ownerId ?? '',
-                                  comment: c,
-                                  profile: _commentProfile(c),
-                                  relativeTime: _formatRelativeTime(_parseTime(c['created_at'])),
-                                  isOwner: isOwner,
-                                  busy: cid != null && cid == _busyCommentId,
-                                  onEdit: isOwner ? () => _promptEditComment(c) : null,
-                                  onDelete: isOwner ? () => _confirmDeleteComment(c) : null,
-                                );
-                              },
-                            ),
-                        ],
-                      ),
+                    Icon(
+                      Icons.error_outline_rounded,
+                      size: 48,
+                      color: cs.error,
                     ),
-                    Material(
-                      elevation: 8,
-                      shadowColor: Colors.black.withValues(alpha: 0.08),
-                      color: cs.surface,
-                      child: Padding(
-                        padding: EdgeInsets.fromLTRB(16, 10, 8, 10 + bottomInset),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _commentCtrl,
-                                textCapitalization: TextCapitalization.sentences,
-                                minLines: 1,
-                                maxLines: 5,
-                                enabled: !_postingComment,
-                                decoration: InputDecoration(
-                                  hintText: 'Add a comment…',
-                                  filled: true,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: cs.outlineVariant),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(color: cs.primary, width: 1.5),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 12,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            _postingComment
-                                ? const Padding(
-                                    padding: EdgeInsets.all(12),
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                  )
-                                : IconButton.filled(
-                                    onPressed: _submitComment,
-                                    tooltip: 'Send comment',
-                                    icon: const Icon(Icons.send_rounded),
-                                  ),
-                          ],
-                        ),
-                      ),
+                    const SizedBox(height: 16),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 20),
+                    FilledButton.tonal(
+                      onPressed: _load,
+                      child: const Text('Retry'),
                     ),
                   ],
                 ),
+              ),
+            )
+          : TimelineColumn(
+              child: Column(
+                children: [
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      children: [
+                        PollCard(poll: _poll!, showTrendingScore: false),
+                        PollResultChart(poll: _poll!),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                          child: Text(
+                            'Comments',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        if (_comments.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            child: Text(
+                              'No comments yet',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: cs.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        else
+                          ..._comments.map((c) {
+                            final cid = c['id']?.toString();
+                            final ownerId = _commentOwnerId(c);
+                            final isOwner =
+                                currentUserId != null &&
+                                ownerId != null &&
+                                ownerId == currentUserId;
+                            return _CommentTile(
+                              commentUserId: ownerId ?? '',
+                              comment: c,
+                              profile: _commentProfile(c),
+                              relativeTime: _formatRelativeTime(
+                                _parseTime(c['created_at']),
+                              ),
+                              isOwner: isOwner,
+                              busy: cid != null && cid == _busyCommentId,
+                              onEdit: isOwner
+                                  ? () => _promptEditComment(c)
+                                  : null,
+                              onDelete: isOwner
+                                  ? () => _confirmDeleteComment(c)
+                                  : null,
+                            );
+                          }),
+                      ],
+                    ),
+                  ),
+                  Material(
+                    elevation: 8,
+                    shadowColor: Colors.black.withValues(alpha: 0.08),
+                    color: cs.surface,
+                    child: Padding(
+                      padding: EdgeInsets.fromLTRB(16, 10, 8, 10 + bottomInset),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _commentCtrl,
+                              textCapitalization: TextCapitalization.sentences,
+                              minLines: 1,
+                              maxLines: 5,
+                              enabled: !_postingComment,
+                              decoration: InputDecoration(
+                                hintText: 'Add a comment…',
+                                filled: true,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: cs.outlineVariant,
+                                  ),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide(
+                                    color: cs.primary,
+                                    width: 1.5,
+                                  ),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          _postingComment
+                              ? const Padding(
+                                  padding: EdgeInsets.all(12),
+                                  child: SizedBox(
+                                    width: 24,
+                                    height: 24,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  ),
+                                )
+                              : IconButton.filled(
+                                  onPressed: _submitComment,
+                                  tooltip: 'Send comment',
+                                  icon: const Icon(Icons.send_rounded),
+                                ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }
@@ -505,7 +550,9 @@ class _CommentTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final username =
-        profile?['username']?.toString() ?? comment['username']?.toString() ?? 'Unknown';
+        profile?['username']?.toString() ??
+        comment['username']?.toString() ??
+        'Unknown';
     final avatarUrl = profile?['avatar_url']?.toString();
     final text = comment['comment_text']?.toString() ?? '';
     final uid = commentUserId.trim();
@@ -515,8 +562,9 @@ class _CommentTile extends StatelessWidget {
       backgroundColor: (avatarUrl != null && avatarUrl.isNotEmpty)
           ? cs.surfaceContainerHighest
           : cs.primaryContainer,
-      backgroundImage:
-          avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+          ? NetworkImage(avatarUrl)
+          : null,
       child: avatarUrl == null || avatarUrl.isEmpty
           ? Text(
               username.isNotEmpty ? username[0].toUpperCase() : '?',
@@ -531,9 +579,7 @@ class _CommentTile extends StatelessWidget {
 
     final usernameText = Text(
       username,
-      style: theme.textTheme.titleSmall?.copyWith(
-        fontWeight: FontWeight.w700,
-      ),
+      style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
@@ -583,9 +629,16 @@ class _CommentTile extends StatelessWidget {
                       )
                     else if (isOwner && onEdit != null && onDelete != null)
                       PopupMenuButton<String>(
-                        icon: Icon(Icons.more_vert_rounded, size: 20, color: cs.onSurfaceVariant),
+                        icon: Icon(
+                          Icons.more_vert_rounded,
+                          size: 20,
+                          color: cs.onSurfaceVariant,
+                        ),
                         padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
                         onSelected: (value) {
                           if (value == 'edit') onEdit!();
                           if (value == 'delete') onDelete!();

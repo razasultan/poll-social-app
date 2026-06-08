@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 
 import 'core/config/app_config.dart';
 import 'core/config/supabase_config.dart';
+import 'core/web/url_strategy.dart';
 import 'core/widgets/dev_environment_banner.dart';
 import 'screens/auth/auth_gate.dart';
 import 'screens/backend_test_screen.dart';
+import 'screens/embed_poll_screen.dart';
+import 'screens/public_poll_screen.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configurePathUrlStrategy();
 
   if (!AppConfig.isSupabaseConfigured) {
     debugPrint('[App] ${AppConfig.missingConfigMessage}');
@@ -166,11 +170,57 @@ class MyApp extends StatelessWidget {
       routes: {
         '/debug': (context) => const BackendTestScreen(),
       },
+      onGenerateRoute: (settings) {
+        final embedSlug = embedPollShareSlugFromRouteName(settings.name);
+        if (embedSlug != null) {
+          return MaterialPageRoute(
+            builder: (_) => EmbedPollScreen(shareSlug: embedSlug),
+            settings: settings,
+          );
+        }
+        final shareSlug = publicPollShareSlugFromRouteName(settings.name);
+        if (shareSlug != null) {
+          return MaterialPageRoute(
+            builder: (_) => PublicPollScreen(shareSlug: shareSlug),
+            settings: settings,
+          );
+        }
+        return null;
+      },
       builder: (context, child) {
         return DevEnvironmentBanner(child: child);
       },
     );
   }
+}
+
+/// Extracts the share slug from a `/p/:shareSlug` (or legacy `/poll/:shareSlug`)
+/// route name, e.g. `/p/abc123` -> `abc123`. Returns `null` for any other
+/// route so [MyApp.onGenerateRoute] can fall back to default routing. Exposed
+/// for testing.
+String? publicPollShareSlugFromRouteName(String? routeName) {
+  if (routeName == null) return null;
+  final uri = Uri.tryParse(routeName);
+  if (uri == null) return null;
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  if (segments.length != 2) return null;
+  if (segments[0] != 'p' && segments[0] != 'poll') return null;
+  final slug = segments[1].trim();
+  return slug.isEmpty ? null : slug;
+}
+
+/// Extracts the share slug from an `/embed/poll/:shareSlug` route name, e.g.
+/// `/embed/poll/abc123` -> `abc123`. Returns `null` for any other route.
+/// Exposed for testing.
+String? embedPollShareSlugFromRouteName(String? routeName) {
+  if (routeName == null) return null;
+  final uri = Uri.tryParse(routeName);
+  if (uri == null) return null;
+  final segments = uri.pathSegments.where((s) => s.isNotEmpty).toList();
+  if (segments.length != 3) return null;
+  if (segments[0] != 'embed' || segments[1] != 'poll') return null;
+  final slug = segments[2].trim();
+  return slug.isEmpty ? null : slug;
 }
 
 /// Shown when dart-defines are missing or Supabase fails to start.

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
 import '../services/social_service.dart';
@@ -32,7 +33,9 @@ List<Map<String, dynamic>> asLikedPollList(dynamic raw) {
   if (raw is! List) return [];
   final out = <Map<String, dynamic>>[];
   for (final e in raw) {
-    final row = e is Map<String, dynamic> ? e : (e is Map ? Map<String, dynamic>.from(e) : null);
+    final row = e is Map<String, dynamic>
+        ? e
+        : (e is Map ? Map<String, dynamic>.from(e) : null);
     if (row == null) continue;
     final pollRaw = row['polls'];
     final poll = pollRaw is Map<String, dynamic>
@@ -133,7 +136,8 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   List<Map<String, dynamic>> _asPollList(dynamic raw) => asPollList(raw);
 
-  List<Map<String, dynamic>> _asLikedPollList(dynamic raw) => asLikedPollList(raw);
+  List<Map<String, dynamic>> _asLikedPollList(dynamic raw) =>
+      asLikedPollList(raw);
 
   Future<void> _load() async {
     setState(() {
@@ -145,13 +149,17 @@ class _ProfileScreenState extends State<ProfileScreen>
       final rawProfile = await _profileService.getProfile(widget.userId);
       final me = _currentUserId;
       final publicOnly = me == null || me != widget.userId;
-      final rawPolls =
-          await _feedService.getPollsForUser(widget.userId, publicOnly: publicOnly);
+      final rawPolls = await _feedService.getPollsForUser(
+        widget.userId,
+        publicOnly: publicOnly,
+      );
 
       var likedPolls = <Map<String, dynamic>>[];
       if (_isOwnProfile) {
         try {
-          final rawLiked = await _socialService.getLikedPollsForUser(widget.userId);
+          final rawLiked = await _socialService.getLikedPollsForUser(
+            widget.userId,
+          );
           likedPolls = _asLikedPollList(rawLiked);
         } catch (_) {
           likedPolls = [];
@@ -202,10 +210,13 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   String _errorMessage(Object e) => profileErrorMessage(e);
 
-  bool _isDuplicateFollowError(PostgrestException e) => isDuplicateFollowError(e);
+  bool _isDuplicateFollowError(PostgrestException e) =>
+      isDuplicateFollowError(e);
 
   void _followSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _reloadFollowRelationship() async {
@@ -240,14 +251,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() => _followBusy = true);
         try {
           if (_isFollowing) {
-            await _socialService.unfollowUser(followerId: me, followingId: widget.userId);
+            await _socialService.unfollowUser(
+              followerId: me,
+              followingId: widget.userId,
+            );
             if (!mounted) return;
             setState(() {
               _isFollowing = false;
               _followersCount = (_followersCount > 0) ? _followersCount - 1 : 0;
             });
           } else {
-            await _socialService.followUser(followerId: me, followingId: widget.userId);
+            await _socialService.followUser(
+              followerId: me,
+              followingId: widget.userId,
+            );
             if (!mounted) return;
             setState(() {
               _isFollowing = true;
@@ -257,14 +274,18 @@ class _ProfileScreenState extends State<ProfileScreen>
         } on PostgrestException catch (e) {
           if (!mounted) return;
           if (_isFollowing) {
-            _followSnack(e.message.isNotEmpty ? e.message : 'Could not unfollow.');
+            _followSnack(
+              e.message.isNotEmpty ? e.message : 'Could not unfollow.',
+            );
             await _reloadFollowRelationship();
           } else {
             if (_isDuplicateFollowError(e)) {
               await _reloadFollowRelationship();
               _followSnack('Already following this profile.');
             } else {
-              _followSnack(e.message.isNotEmpty ? e.message : 'Could not follow.');
+              _followSnack(
+                e.message.isNotEmpty ? e.message : 'Could not follow.',
+              );
             }
           }
         } catch (_) {
@@ -295,7 +316,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               icon: const Icon(Icons.settings_outlined),
               onPressed: () {
                 Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(builder: (context) => const SettingsScreen()),
+                  MaterialPageRoute<void>(
+                    builder: (context) => const SettingsScreen(),
+                  ),
                 );
               },
             ),
@@ -315,52 +338,61 @@ class _ProfileScreenState extends State<ProfileScreen>
           ],
         ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_off_outlined, size: 48, color: cs.error),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: 20),
-                        FilledButton.tonal(onPressed: _load, child: const Text('Retry')),
-                      ],
+      body: TimelineColumn(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.person_off_outlined,
+                        size: 48,
+                        color: cs.error,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge,
+                      ),
+                      const SizedBox(height: 20),
+                      FilledButton.tonal(
+                        onPressed: _load,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildPollListView(
+                    polls: _polls,
+                    emptyMessage: 'No polls yet',
+                    header: _ProfileHeader(
+                      profile: _profile!,
+                      followers: _followersCount,
+                      following: _followingCount,
+                      pollCount: _polls.length,
+                      showFollow: !_isOwnProfile,
+                      isFollowing: _isFollowing,
+                      followBusy: _followBusy,
+                      onFollowTap: _toggleFollow,
                     ),
                   ),
-                )
-              : TabBarView(
-                  controller: _tabController,
-                  children: [
+                  if (_isOwnProfile)
                     _buildPollListView(
-                      polls: _polls,
-                      emptyMessage: 'No polls yet',
-                      header: _ProfileHeader(
-                        profile: _profile!,
-                        followers: _followersCount,
-                        following: _followingCount,
-                        pollCount: _polls.length,
-                        showFollow: !_isOwnProfile,
-                        isFollowing: _isFollowing,
-                        followBusy: _followBusy,
-                        onFollowTap: _toggleFollow,
-                      ),
+                      polls: _likedPolls,
+                      emptyMessage: 'No liked polls yet',
                     ),
-                    if (_isOwnProfile)
-                      _buildPollListView(
-                        polls: _likedPolls,
-                        emptyMessage: 'No liked polls yet',
-                      ),
-                  ],
-                ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -394,25 +426,22 @@ class _ProfileScreenState extends State<ProfileScreen>
             SliverPadding(
               padding: const EdgeInsets.only(bottom: 24),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final poll = polls[index];
-                    return PollCard(
-                      poll: poll,
-                      showTrendingScore: false,
-                      onPollTap: () {
-                        final id = poll['id']?.toString();
-                        if (id == null || id.isEmpty) return;
-                        Navigator.of(context).push<void>(
-                          MaterialPageRoute<void>(
-                            builder: (context) => PollDetailScreen(pollId: id),
-                          ),
-                        );
-                      },
-                    );
-                  },
-                  childCount: polls.length,
-                ),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final poll = polls[index];
+                  return PollCard(
+                    poll: poll,
+                    showTrendingScore: false,
+                    onPollTap: () {
+                      final id = poll['id']?.toString();
+                      if (id == null || id.isEmpty) return;
+                      Navigator.of(context).push<void>(
+                        MaterialPageRoute<void>(
+                          builder: (context) => PollDetailScreen(pollId: id),
+                        ),
+                      );
+                    },
+                  );
+                }, childCount: polls.length),
               ),
             ),
         ],
@@ -469,7 +498,10 @@ class _ProfileHeader extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [cs.primary.withValues(alpha: 0.55), cs.primary.withValues(alpha: 0.18)],
+                  colors: [
+                    cs.primary.withValues(alpha: 0.55),
+                    cs.primary.withValues(alpha: 0.18),
+                  ],
                 ),
               ),
             ),
@@ -478,12 +510,16 @@ class _ProfileHeader extends StatelessWidget {
               bottom: -avatarRadius,
               child: Container(
                 padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(color: cs.surface, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  shape: BoxShape.circle,
+                ),
                 child: CircleAvatar(
                   radius: avatarRadius,
                   backgroundColor: cs.primaryContainer,
-                  backgroundImage:
-                      avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
                   child: avatarUrl == null || avatarUrl.isEmpty
                       ? Text(
                           username.isNotEmpty ? username[0].toUpperCase() : '?',
@@ -505,9 +541,16 @@ class _ProfileHeader extends StatelessWidget {
                   onPressed: followBusy ? null : onFollowTap,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: isFollowing ? cs.onSurface : cs.surface,
-                    backgroundColor: isFollowing ? Colors.transparent : cs.onSurface,
-                    side: BorderSide(color: isFollowing ? cs.outlineVariant : cs.onSurface),
-                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+                    backgroundColor: isFollowing
+                        ? Colors.transparent
+                        : cs.onSurface,
+                    side: BorderSide(
+                      color: isFollowing ? cs.outlineVariant : cs.onSurface,
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 10,
+                    ),
                     shape: const StadiumBorder(),
                   ),
                   child: followBusy
@@ -534,12 +577,16 @@ class _ProfileHeader extends StatelessWidget {
             children: [
               Text(
                 displayName.isNotEmpty ? displayName : username,
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 '@$username',
-                style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
               ),
               if (bio.isNotEmpty) ...[
                 const SizedBox(height: 12),
@@ -553,11 +600,17 @@ class _ProfileHeader extends StatelessWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.place_outlined, size: 17, color: cs.onSurfaceVariant),
+                    Icon(
+                      Icons.place_outlined,
+                      size: 17,
+                      color: cs.onSurfaceVariant,
+                    ),
                     const SizedBox(width: 5),
                     Text(
                       location,
-                      style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                     ),
                   ],
                 ),
@@ -597,15 +650,18 @@ class _InlineStat extends StatelessWidget {
       children: [
         Text(
           '$value',
-          style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w800),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
         ),
         const SizedBox(width: 4),
         Text(
           label,
-          style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       ],
     );
   }
 }
-

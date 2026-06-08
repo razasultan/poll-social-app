@@ -104,6 +104,42 @@ class PollService {
     });
   }
 
+  /// Uploads [bytes] for the option at [optionOrder] (1-based, matching
+  /// `poll_options.option_order`) to the `poll-media` bucket under
+  /// `{userId}/{pollId}/option-{optionId}/{fileName}`, then records the
+  /// public URL on that option's `media_url`/`media_type`.
+  Future<void> uploadOptionMedia({
+    required String userId,
+    required String pollId,
+    required int optionOrder,
+    required Uint8List bytes,
+    required String fileName,
+    required String mediaType,
+  }) async {
+    final option = await _supabase
+        .from('poll_options')
+        .select('id')
+        .eq('poll_id', pollId)
+        .eq('option_order', optionOrder)
+        .maybeSingle();
+    final optionId = option?['id']?.toString();
+    if (optionId == null) return;
+
+    final path = '$userId/$pollId/option-$optionId/$fileName';
+    final storage = _supabase.storage.from('poll-media');
+    await storage.uploadBinary(
+      path,
+      bytes,
+      fileOptions: const FileOptions(upsert: true),
+    );
+    final mediaUrl = storage.getPublicUrl(path);
+
+    await _supabase
+        .from('poll_options')
+        .update({'media_url': mediaUrl, 'media_type': mediaType})
+        .eq('id', optionId);
+  }
+
   Future<void> deletePoll(String pollId) async {
     await _supabase.from('polls').delete().eq('id', pollId);
   }
@@ -113,12 +149,29 @@ class PollService {
         .from('polls')
         .select('''
           *,
-          profiles(username, avatar_url),
-          poll_options(id, option_text, option_order),
+          profiles(username, display_name, avatar_url, bio),
+          poll_options(id, option_text, option_order, media_url, media_type),
           poll_media(*),
           poll_analytics(*)
         ''')
         .eq('id', pollId)
         .single();
+  }
+
+  /// Looks up a poll by its public [shareSlug] (used by the public poll page
+  /// at `/p/:shareSlug`). Returns `null` when no poll matches — e.g. an
+  /// unknown or mistyped slug.
+  Future<dynamic> getPollByShareSlug(String shareSlug) async {
+    return await _supabase
+        .from('polls')
+        .select('''
+          *,
+          profiles(username, display_name, avatar_url, bio),
+          poll_options(id, option_text, option_order, media_url, media_type),
+          poll_media(*),
+          poll_analytics(*)
+        ''')
+        .eq('share_slug', shareSlug)
+        .maybeSingle();
   }
 }
