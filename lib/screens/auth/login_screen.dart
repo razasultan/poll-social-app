@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/widgets/auth_layout.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -37,7 +38,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String? _emailValidator(String? v) {
@@ -99,8 +102,14 @@ class _LoginScreenState extends State<LoginScreen> {
             autocorrect: false,
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Send link')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Send link'),
+            ),
           ],
         ),
       );
@@ -118,7 +127,9 @@ class _LoginScreenState extends State<LoginScreen> {
         _snack('Check your inbox for a reset link.');
       } on AuthException catch (e) {
         if (!mounted) return;
-        _snack(e.message.isNotEmpty ? e.message : 'Could not send reset email.');
+        _snack(
+          e.message.isNotEmpty ? e.message : 'Could not send reset email.',
+        );
       } catch (_) {
         if (!mounted) return;
         _snack('Network error. Try again.');
@@ -128,7 +139,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  InputDecoration _fieldDecoration(BuildContext context, String label, {Widget? prefix}) {
+  InputDecoration _fieldDecoration(
+    BuildContext context,
+    String label, {
+    Widget? prefix,
+  }) {
     final cs = Theme.of(context).colorScheme;
     return InputDecoration(
       labelText: label,
@@ -153,90 +168,108 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: AuthLayout(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const SizedBox(height: 12),
+                Icon(Icons.how_to_vote_rounded, size: 56, color: cs.primary),
+                const SizedBox(height: 16),
+                Text(
+                  'Welcome back',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Sign in to vote and share polls',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 36),
+                TextFormField(
+                  controller: _emailCtrl,
+                  decoration: _fieldDecoration(
+                    context,
+                    'Email',
+                    prefix: const Icon(Icons.mail_outline_rounded),
+                  ),
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  autocorrect: false,
+                  validator: _emailValidator,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _passwordCtrl,
+                  decoration: _fieldDecoration(
+                    context,
+                    'Password',
+                    prefix: const Icon(Icons.lock_outline_rounded),
+                  ),
+                  obscureText: true,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) => _submit(),
+                  validator: _passwordValidator,
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _loading ? null : _openForgotPassword,
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                FilledButton(
+                  onPressed: _loading ? null : _submit,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: _loading
+                      ? SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: cs.onPrimary,
+                          ),
+                        )
+                      : const Text('Sign in'),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const SizedBox(height: 12),
-                    Icon(Icons.how_to_vote_rounded, size: 56, color: cs.primary),
-                    const SizedBox(height: 16),
                     Text(
-                      'Welcome back',
-                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Sign in to vote and share polls',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 36),
-                    TextFormField(
-                      controller: _emailCtrl,
-                      decoration: _fieldDecoration(context, 'Email', prefix: const Icon(Icons.mail_outline_rounded)),
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      autocorrect: false,
-                      validator: _emailValidator,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordCtrl,
-                      decoration: _fieldDecoration(context, 'Password', prefix: const Icon(Icons.lock_outline_rounded)),
-                      obscureText: true,
-                      textInputAction: TextInputAction.done,
-                      onFieldSubmitted: (_) => _submit(),
-                      validator: _passwordValidator,
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: _loading ? null : _openForgotPassword,
-                        child: const Text('Forgot password?'),
+                      'New here?',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    FilledButton(
-                      onPressed: _loading ? null : _submit,
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      ),
-                      child: _loading
-                          ? SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary),
-                            )
-                          : const Text('Sign in'),
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text('New here?', style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant)),
-                        TextButton(
-                          onPressed: _loading
-                              ? null
-                              : () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(builder: (_) => const SignupScreen()),
-                                  );
-                                },
-                          child: const Text('Create an account'),
-                        ),
-                      ],
+                    TextButton(
+                      onPressed: _loading
+                          ? null
+                          : () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => const SignupScreen(),
+                                ),
+                              );
+                            },
+                      child: const Text('Create an account'),
                     ),
                   ],
                 ),
-              ),
+              ],
             ),
           ),
         ),

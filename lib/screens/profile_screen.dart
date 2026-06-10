@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
@@ -8,6 +9,7 @@ import '../services/profile_service.dart';
 import '../services/social_service.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
+import 'create_poll_screen.dart';
 import 'poll_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -113,14 +115,21 @@ class _ProfileScreenState extends State<ProfileScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: _isOwnProfile ? 2 : 1, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _lastReloadToken = widget.reloadToken?.value;
     widget.reloadToken?.addListener(_onReloadTokenChanged);
     _load();
   }
 
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    setState(() {});
+  }
+
   @override
   void dispose() {
     widget.reloadToken?.removeListener(_onReloadTokenChanged);
+    _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -206,6 +215,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         _error = _errorMessage(e);
       });
     }
+  }
+
+  Future<void> _openCreatePoll() async {
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final created = await Navigator.of(context).push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (context) => const CreatePollScreen(),
+          ),
+        );
+        if (created == true) await _load();
+      },
+    );
   }
 
   String _errorMessage(Object e) => profileErrorMessage(e);
@@ -323,20 +346,6 @@ class _ProfileScreenState extends State<ProfileScreen>
               },
             ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: cs.primary,
-          indicatorWeight: 3,
-          indicatorSize: TabBarIndicatorSize.label,
-          labelColor: cs.onSurface,
-          unselectedLabelColor: cs.onSurfaceVariant,
-          labelStyle: const TextStyle(fontWeight: FontWeight.w800),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          tabs: [
-            const Tab(text: 'Polls'),
-            if (_isOwnProfile) const Tab(text: 'Liked'),
-          ],
-        ),
       ),
       body: TimelineColumn(
         child: _loading
@@ -368,85 +377,141 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                 ),
               )
-            : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildPollListView(
-                    polls: _polls,
-                    emptyMessage: 'No polls yet',
-                    header: _ProfileHeader(
-                      profile: _profile!,
-                      followers: _followersCount,
-                      following: _followingCount,
-                      pollCount: _polls.length,
-                      showFollow: !_isOwnProfile,
-                      isFollowing: _isFollowing,
-                      followBusy: _followBusy,
-                      onFollowTap: _toggleFollow,
+            : RefreshIndicator(
+                onRefresh: _load,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverToBoxAdapter(
+                      child: _ProfileHeader(
+                        profile: _profile!,
+                        followers: _followersCount,
+                        following: _followingCount,
+                        pollCount: _polls.length,
+                        showFollow: !_isOwnProfile,
+                        isFollowing: _isFollowing,
+                        followBusy: _followBusy,
+                        onFollowTap: _toggleFollow,
+                      ),
                     ),
-                  ),
-                  if (_isOwnProfile)
-                    _buildPollListView(
-                      polls: _likedPolls,
-                      emptyMessage: 'No liked polls yet',
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _ProfileTabBarDelegate(
+                        TabBar(
+                          controller: _tabController,
+                          indicatorColor: cs.primary,
+                          indicatorWeight: 3,
+                          indicatorSize: TabBarIndicatorSize.label,
+                          labelColor: cs.onSurface,
+                          unselectedLabelColor: cs.onSurfaceVariant,
+                          labelStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                          ),
+                          unselectedLabelStyle: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          tabs: [
+                            const Tab(text: 'Polls'),
+                            if (_isOwnProfile) const Tab(text: 'Liked'),
+                          ],
+                        ),
+                        backgroundColor: cs.surface,
+                        borderColor: cs.outlineVariant,
+                      ),
                     ),
-                ],
+                    if (_isOwnProfile && _tabController.index == 1)
+                      ..._pollListSlivers(
+                        polls: _likedPolls,
+                        emptyMessage: 'Polls you like will show up here',
+                        emptyIcon: Icons.favorite_border_rounded,
+                      )
+                    else
+                      ..._pollListSlivers(
+                        polls: _polls,
+                        emptyMessage: _isOwnProfile
+                            ? "You haven't posted any polls yet"
+                            : "This account hasn't posted any polls yet",
+                        emptyIcon: Icons.how_to_vote_outlined,
+                        showCreateCta: _isOwnProfile,
+                      ),
+                  ],
+                ),
               ),
       ),
     );
   }
 
-  Widget _buildPollListView({
+  List<Widget> _pollListSlivers({
     required List<Map<String, dynamic>> polls,
     required String emptyMessage,
-    Widget? header,
+    IconData emptyIcon = Icons.how_to_vote_outlined,
+    bool showCreateCta = false,
   }) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        slivers: [
-          if (header != null) SliverToBoxAdapter(child: header),
-          if (polls.isEmpty)
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(
-                child: Text(
-                  emptyMessage,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: cs.onSurfaceVariant,
+    if (polls.isEmpty) {
+      return [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    emptyIcon,
+                    size: 40,
+                    color: cs.onSurfaceVariant.withValues(alpha: 0.6),
                   ),
-                ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.only(bottom: 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final poll = polls[index];
-                  return PollCard(
-                    poll: poll,
-                    showTrendingScore: false,
-                    onPollTap: () {
-                      final id = poll['id']?.toString();
-                      if (id == null || id.isEmpty) return;
-                      Navigator.of(context).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (context) => PollDetailScreen(pollId: id),
-                        ),
-                      );
-                    },
-                  );
-                }, childCount: polls.length),
+                  const SizedBox(height: 12),
+                  Text(
+                    emptyMessage,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  if (showCreateCta) ...[
+                    const SizedBox(height: 18),
+                    FilledButton.icon(
+                      onPressed: _openCreatePoll,
+                      icon: const Icon(Icons.add_rounded),
+                      label: const Text('Create a poll'),
+                    ),
+                  ],
+                ],
               ),
             ),
-        ],
+          ),
+        ),
+      ];
+    }
+
+    return [
+      SliverPadding(
+        padding: const EdgeInsets.only(bottom: 24),
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final poll = polls[index];
+            return PollCard(
+              poll: poll,
+              showTrendingScore: false,
+              onPollTap: () {
+                final id = poll['id']?.toString();
+                if (id == null || id.isEmpty) return;
+                Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (context) => PollDetailScreen(pollId: id),
+                  ),
+                );
+              },
+            );
+          }, childCount: polls.length),
+        ),
       ),
-    );
+    ];
   }
 }
 
@@ -471,6 +536,48 @@ class _ProfileHeader extends StatelessWidget {
   final bool followBusy;
   final VoidCallback onFollowTap;
 
+  static const _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  /// "Month Year" the profile was created, or `null` if unavailable.
+  static String? _joinedLabel(dynamic raw) {
+    final at = raw == null ? null : DateTime.tryParse(raw.toString());
+    if (at == null) return null;
+    return '${_months[at.month - 1]} ${at.year}';
+  }
+
+  /// "Month Day, Year" the profile owner was born, or `null` if unset.
+  static String? _birthLabel(dynamic raw) {
+    final at = raw == null ? null : DateTime.tryParse(raw.toString());
+    if (at == null) return null;
+    return '${_months[at.month - 1]} ${at.day}, ${at.year}';
+  }
+
+  /// Display label for a website URL: strips the scheme and trailing slash.
+  static String _websiteLabel(String url) {
+    var label = url.replaceFirst(RegExp(r'^https?://'), '');
+    if (label.endsWith('/')) label = label.substring(0, label.length - 1);
+    return label;
+  }
+
+  Future<void> _openWebsite(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -483,6 +590,9 @@ class _ProfileHeader extends StatelessWidget {
         .where((v) => v.isNotEmpty)
         .join(', ');
     final avatarUrl = profile['avatar_url']?.toString();
+    final joined = _joinedLabel(profile['created_at']);
+    final born = _birthLabel(profile['birth_date']);
+    final website = profile['website']?.toString().trim() ?? '';
     const avatarRadius = 38.0;
 
     return Column(
@@ -492,15 +602,37 @@ class _ProfileHeader extends StatelessWidget {
         Stack(
           clipBehavior: Clip.none,
           children: [
-            Container(
-              height: 110,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    cs.primary.withValues(alpha: 0.55),
-                    cs.primary.withValues(alpha: 0.18),
+            ClipRect(
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      cs.primary.withValues(alpha: 0.65),
+                      cs.primary.withValues(alpha: 0.22),
+                    ],
+                  ),
+                ),
+                child: Stack(
+                  children: [
+                    Positioned(
+                      right: -36,
+                      top: -44,
+                      child: _GhostCircle(
+                        size: 140,
+                        color: Colors.white.withValues(alpha: 0.10),
+                      ),
+                    ),
+                    Positioned(
+                      right: 60,
+                      bottom: -50,
+                      child: _GhostCircle(
+                        size: 90,
+                        color: const Color(0xFFF91880).withValues(alpha: 0.16),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -513,6 +645,13 @@ class _ProfileHeader extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: cs.surface,
                   shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: CircleAvatar(
                   radius: avatarRadius,
@@ -595,33 +734,40 @@ class _ProfileHeader extends StatelessWidget {
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                 ),
               ],
-              if (location.isNotEmpty) ...[
+              if (location.isNotEmpty ||
+                  website.isNotEmpty ||
+                  born != null ||
+                  joined != null) ...[
                 const SizedBox(height: 10),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
                   children: [
-                    Icon(
-                      Icons.place_outlined,
-                      size: 17,
-                      color: cs.onSurfaceVariant,
-                    ),
-                    const SizedBox(width: 5),
-                    Text(
-                      location,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
+                    if (location.isNotEmpty)
+                      _MetaChip(icon: Icons.place_outlined, label: location),
+                    if (website.isNotEmpty)
+                      _LinkChip(
+                        icon: Icons.link_rounded,
+                        label: _websiteLabel(website),
+                        onTap: () => _openWebsite(website),
                       ),
-                    ),
+                    if (born != null)
+                      _MetaChip(icon: Icons.cake_outlined, label: 'Born $born'),
+                    if (joined != null)
+                      _MetaChip(
+                        icon: Icons.calendar_month_outlined,
+                        label: 'Joined $joined',
+                      ),
                   ],
                 ),
               ],
-              const SizedBox(height: 14),
+              const SizedBox(height: 16),
               Row(
                 children: [
                   _InlineStat(label: 'Following', value: following),
-                  const SizedBox(width: 18),
+                  _StatDivider(),
                   _InlineStat(label: 'Followers', value: followers),
-                  const SizedBox(width: 18),
+                  _StatDivider(),
                   _InlineStat(label: 'Polls', value: pollCount),
                 ],
               ),
@@ -662,6 +808,145 @@ class _InlineStat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Thin vertical separator between [_InlineStat]s.
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: SizedBox(
+        height: 14,
+        child: VerticalDivider(
+          width: 1,
+          thickness: 1,
+          color: cs.outlineVariant,
+        ),
+      ),
+    );
+  }
+}
+
+/// Small icon + label pair used for location / join date metadata.
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 17, color: cs.onSurfaceVariant),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Tappable variant of [_MetaChip] used for the profile's website link.
+class _LinkChip extends StatelessWidget {
+  const _LinkChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 17, color: cs.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Pins the profile's Polls/Liked [TabBar] beneath the header, X-style.
+class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
+  _ProfileTabBarDelegate(
+    this.tabBar, {
+    required this.backgroundColor,
+    required this.borderColor,
+  });
+
+  final TabBar tabBar;
+  final Color backgroundColor;
+  final Color borderColor;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _ProfileTabBarDelegate oldDelegate) {
+    return tabBar != oldDelegate.tabBar ||
+        backgroundColor != oldDelegate.backgroundColor ||
+        borderColor != oldDelegate.borderColor;
+  }
+}
+
+/// Soft decorative circle used to add depth to the cover banner.
+class _GhostCircle extends StatelessWidget {
+  const _GhostCircle({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }

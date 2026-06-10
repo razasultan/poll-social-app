@@ -22,6 +22,7 @@ class TimelineColumn extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: maxWidth),
             child: DecoratedBox(
+              position: DecorationPosition.foreground,
               decoration: BoxDecoration(
                 border: Border(
                   left: BorderSide(color: cs.outlineVariant),

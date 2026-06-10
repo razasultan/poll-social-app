@@ -9,7 +9,15 @@ import 'poll_detail_screen.dart';
 
 /// Search polls, users, hashtags, and topics via Supabase RPCs.
 class SearchScreen extends StatefulWidget {
-  const SearchScreen({super.key});
+  const SearchScreen({super.key, this.initialQuery, this.initialTabIndex});
+
+  /// Pre-fills the search field and runs the search immediately, e.g. when
+  /// arriving from a tapped `#hashtag` in a poll's post text.
+  final String? initialQuery;
+
+  /// Tab to select when [initialQuery] is provided (0=Polls, 1=Users,
+  /// 2=Hashtags, 3=Topics).
+  final int? initialTabIndex;
 
   @override
   State<SearchScreen> createState() => _SearchScreenState();
@@ -33,8 +41,19 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    final initialIndex = widget.initialTabIndex ?? 0;
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: initialIndex.clamp(0, 3),
+    );
     _tabController.addListener(_onTabChanged);
+
+    final initialQuery = widget.initialQuery?.trim();
+    if (initialQuery != null && initialQuery.isNotEmpty) {
+      _searchCtrl.text = initialQuery;
+      unawaited(_executeSearch(initialQuery));
+    }
   }
 
   void _onTabChanged() {

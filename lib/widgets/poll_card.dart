@@ -10,6 +10,7 @@ import '../services/social_service.dart';
 import '../services/vote_service.dart';
 import '../utils/profile_navigation.dart';
 import 'auth_guard.dart';
+import 'linkified_text.dart';
 import 'poll_result_chart.dart' show buildPollChartEntries;
 import 'shareable_poll_result_card.dart';
 
@@ -151,7 +152,10 @@ class _PollCardState extends State<PollCard> {
     return v;
   }
 
-  String get _username => _profile?['username']?.toString() ?? widget.poll['username']?.toString() ?? 'unknown';
+  String get _username =>
+      _profile?['username']?.toString() ??
+      widget.poll['username']?.toString() ??
+      'unknown';
 
   /// Falls back to the username when no display name is set.
   String get _displayName {
@@ -379,7 +383,8 @@ class _PollCardState extends State<PollCard> {
       // Let the off-screen ShareablePollResultCard lay out and paint first.
       await WidgetsBinding.instance.endOfFrame;
       final boundary =
-          _shareCardKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+          _shareCardKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         _showMessage('Could not generate the share image. Try again.');
         return;
@@ -432,9 +437,9 @@ class _PollCardState extends State<PollCard> {
 
   void _showMessage(String text) {
     if (!mounted) return;
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(text)),
-    );
+    ScaffoldMessenger.maybeOf(
+      context,
+    )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
   /// Normalizes negative backend scores; shows "Trending" when zero/invalid after clamp.
@@ -486,8 +491,9 @@ class _PollCardState extends State<PollCard> {
       backgroundColor: (avatarUrl != null && avatarUrl.isNotEmpty)
           ? cs.surfaceContainerHighest
           : cs.primaryContainer,
-      backgroundImage:
-          avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+          ? NetworkImage(avatarUrl)
+          : null,
       child: avatarUrl == null || avatarUrl.isEmpty
           ? Text(
               displayName.isNotEmpty ? displayName[0].toUpperCase() : '?',
@@ -500,10 +506,7 @@ class _PollCardState extends State<PollCard> {
           : null,
     );
 
-    final metaParts = <String>[
-      '@$username',
-      if (created.isNotEmpty) created,
-    ];
+    final metaParts = <String>['@$username', if (created.isNotEmpty) created];
 
     final headerRow = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,7 +581,7 @@ class _PollCardState extends State<PollCard> {
                 headerRow,
                 const SizedBox(height: 10),
                 if (postText != null) ...[
-                  Text(
+                  LinkifiedText(
                     postText,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       height: 1.32,
@@ -587,101 +590,127 @@ class _PollCardState extends State<PollCard> {
                     maxLines: 6,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
-                ],
-                questionBlock,
-                if (mainMedia != null) ...[
                   const SizedBox(height: 10),
-                  PollMediaPreview(
-                    mediaUrl: mainMedia['media_url']?.toString(),
-                    mediaType: mainMedia['media_type']?.toString(),
-                  ),
                 ],
-                const SizedBox(height: 12),
-                if (_voteLoading) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      minHeight: 3,
-                      backgroundColor: cs.surfaceContainerHighest,
-                      color: cs.primary,
-                    ),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: cs.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: cs.primary.withValues(alpha: 0.32)),
                   ),
-                  const SizedBox(height: 12),
-                ],
-                if (_options.isEmpty)
-                  Text(
-                    'No options available.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  )
-                else
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 380),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) {
-                      return FadeTransition(
-                        opacity: animation,
-                        child: SlideTransition(
-                          position: Tween<Offset>(
-                            begin: const Offset(0, 0.04),
-                            end: Offset.zero,
-                          ).animate(animation),
-                          child: child,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      questionBlock,
+                      if (mainMedia != null) ...[
+                        const SizedBox(height: 10),
+                        PollMediaPreview(
+                          mediaUrl: mainMedia['media_url']?.toString(),
+                          mediaType: mainMedia['media_type']?.toString(),
                         ),
-                      );
-                    },
-                    child: !showResults
-                        ? Column(
-                            key: const ValueKey<String>('poll_choices'),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (final o in _options)
-                                PollOptionButton(
-                                  label: o['option_text']?.toString() ?? '',
-                                  mediaUrl: o['media_url']?.toString(),
-                                  mediaType: o['media_type']?.toString(),
-                                  enabled: !_voteLoading,
-                                  onPressed: () => _onVote(o['id']?.toString() ?? ''),
-                                ),
-                            ],
-                          )
-                        : Column(
-                            key: ValueKey<String>('poll_results_$_selectedOptionId'),
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (final o in _options)
-                                PollResultBar(
-                                  label: o['option_text']?.toString() ?? '',
-                                  optionKey: o['id']?.toString() ?? '',
-                                  mediaUrl: o['media_url']?.toString(),
-                                  mediaType: o['media_type']?.toString(),
-                                  count: _optionVotes[o['id']?.toString() ?? ''] ?? 0,
-                                  totalVotes: _totalVotes,
-                                  selected: o['id']?.toString() == _selectedOptionId,
-                                  percentage: pollResultPercentage(
-                                    _optionVotes[o['id']?.toString() ?? ''] ?? 0,
-                                    _totalVotes,
-                                  ),
-                                ),
-                            ],
+                      ],
+                      const SizedBox(height: 12),
+                      if (_voteLoading) ...[
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            minHeight: 3,
+                            backgroundColor: cs.surfaceContainerHighest,
+                            color: cs.primary,
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      if (_options.isEmpty)
+                        Text(
+                          'No options available.',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        )
+                      else
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 380),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0, 0.04),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: !showResults
+                              ? Column(
+                                  key: const ValueKey<String>('poll_choices'),
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (final o in _options)
+                                      PollOptionButton(
+                                        label:
+                                            o['option_text']?.toString() ?? '',
+                                        mediaUrl: o['media_url']?.toString(),
+                                        mediaType: o['media_type']?.toString(),
+                                        enabled: !_voteLoading,
+                                        onPressed: () =>
+                                            _onVote(o['id']?.toString() ?? ''),
+                                      ),
+                                  ],
+                                )
+                              : Column(
+                                  key: ValueKey<String>(
+                                    'poll_results_$_selectedOptionId',
+                                  ),
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
+                                    for (final o in _options)
+                                      PollResultBar(
+                                        label:
+                                            o['option_text']?.toString() ?? '',
+                                        optionKey: o['id']?.toString() ?? '',
+                                        mediaUrl: o['media_url']?.toString(),
+                                        mediaType: o['media_type']?.toString(),
+                                        count:
+                                            _optionVotes[o['id']?.toString() ??
+                                                ''] ??
+                                            0,
+                                        totalVotes: _totalVotes,
+                                        selected:
+                                            o['id']?.toString() ==
+                                            _selectedOptionId,
+                                        percentage: pollResultPercentage(
+                                          _optionVotes[o['id']?.toString() ??
+                                                  ''] ??
+                                              0,
+                                          _totalVotes,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                        ),
+                      if (showResults || expiryLabel != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          [
+                            if (showResults) '$_totalVotes votes',
+                            ?expiryLabel,
+                          ].join(' · '),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontSize: 12.5,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                if (showResults || expiryLabel != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    [
-                      if (showResults) '$_totalVotes votes',
-                      ?expiryLabel,
-                    ].join(' · '),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: cs.onSurfaceVariant,
-                      fontSize: 12.5,
-                    ),
-                  ),
-                ],
+                ),
                 const SizedBox(height: 12),
                 EngagementRow(
                   votesCount: _totalVotes,
@@ -725,7 +754,9 @@ class _PollCardState extends State<PollCard> {
               Positioned(
                 top: 0,
                 right: 0,
-                child: TrendingScoreBadge(score: formatTrendingScore(widget.poll['trending_score'])),
+                child: TrendingScoreBadge(
+                  score: formatTrendingScore(widget.poll['trending_score']),
+                ),
               ),
           ],
         ),
@@ -777,15 +808,18 @@ class TrendingScoreBadge extends StatelessWidget {
           children: [
             Text(
               '🔥',
-              style: TextStyle(fontSize: Theme.of(context).textTheme.labelMedium?.fontSize ?? 13),
+              style: TextStyle(
+                fontSize:
+                    Theme.of(context).textTheme.labelMedium?.fontSize ?? 13,
+              ),
             ),
             const SizedBox(width: 4),
             Text(
               score,
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
+                fontWeight: FontWeight.w600,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
             ),
           ],
         ),
@@ -826,6 +860,7 @@ class PollOptionButton extends StatelessWidget {
           onTap: enabled ? onPressed : null,
           splashColor: cs.primary.withValues(alpha: 0.12),
           highlightColor: cs.primary.withValues(alpha: 0.06),
+          hoverColor: cs.primary.withValues(alpha: 0.05),
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(color: cs.outlineVariant),
@@ -835,7 +870,10 @@ class PollOptionButton extends StatelessWidget {
             child: Row(
               children: [
                 if (mediaUrl != null && mediaUrl!.isNotEmpty) ...[
-                  OptionMediaThumbnail(mediaUrl: mediaUrl, mediaType: mediaType),
+                  OptionMediaThumbnail(
+                    mediaUrl: mediaUrl,
+                    mediaType: mediaType,
+                  ),
                   const SizedBox(width: 10),
                 ],
                 Expanded(
@@ -942,14 +980,19 @@ class PollResultBar extends StatelessWidget {
                 child: Row(
                   children: [
                     if (mediaUrl != null && mediaUrl!.isNotEmpty) ...[
-                      OptionMediaThumbnail(mediaUrl: mediaUrl, mediaType: mediaType),
+                      OptionMediaThumbnail(
+                        mediaUrl: mediaUrl,
+                        mediaType: mediaType,
+                      ),
                       const SizedBox(width: 8),
                     ],
                     Expanded(
                       child: Text(
                         label,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                          fontWeight: selected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                           color: cs.onSurface,
                           height: 1.1,
                         ),
@@ -1051,7 +1094,9 @@ class EngagementRow extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           _EngagementInk(
-            icon: liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+            icon: liked
+                ? Icons.favorite_rounded
+                : Icons.favorite_border_rounded,
             iconColor: liked ? _likeColor : cs.onSurfaceVariant,
             labelColor: liked ? _likeColor : null,
             count: likesCount,
@@ -1099,6 +1144,7 @@ class _EngagementInk extends StatelessWidget {
           customBorder: const StadiumBorder(),
           splashColor: hoverColor.withValues(alpha: 0.14),
           highlightColor: hoverColor.withValues(alpha: 0.08),
+          hoverColor: hoverColor.withValues(alpha: 0.08),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             child: Row(
@@ -1123,7 +1169,9 @@ class _EngagementInk extends StatelessWidget {
                   const SizedBox(width: 6),
                   Text(
                     '$count',
-                    style: labelColor != null ? labelStyle?.copyWith(color: labelColor) : labelStyle,
+                    style: labelColor != null
+                        ? labelStyle?.copyWith(color: labelColor)
+                        : labelStyle,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1140,7 +1188,11 @@ class _EngagementInk extends StatelessWidget {
 /// Compact (40x40) rounded thumbnail for media attached to a single poll option.
 /// Videos show a play glyph over the thumbnail since the feed never autoplays.
 class OptionMediaThumbnail extends StatelessWidget {
-  const OptionMediaThumbnail({super.key, required this.mediaUrl, this.mediaType});
+  const OptionMediaThumbnail({
+    super.key,
+    required this.mediaUrl,
+    this.mediaType,
+  });
 
   final String? mediaUrl;
   final String? mediaType;
@@ -1163,7 +1215,8 @@ class OptionMediaThumbnail extends StatelessWidget {
               Image.network(
                 url,
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stack) => ColoredBox(color: cs.surfaceContainerHighest),
+                errorBuilder: (context, error, stack) =>
+                    ColoredBox(color: cs.surfaceContainerHighest),
               )
             else
               ColoredBox(color: cs.surfaceContainerHighest),
@@ -1171,7 +1224,11 @@ class OptionMediaThumbnail extends StatelessWidget {
               ColoredBox(
                 color: Colors.black.withValues(alpha: 0.28),
                 child: const Center(
-                  child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: 18),
+                  child: Icon(
+                    Icons.play_arrow_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
               ),
           ],
@@ -1223,14 +1280,21 @@ class PollMediaPreview extends StatelessWidget {
               },
               errorBuilder: (context, error, stack) => ColoredBox(
                 color: cs.surfaceContainerHighest,
-                child: Icon(Icons.image_not_supported_outlined, color: cs.onSurfaceVariant),
+                child: Icon(
+                  Icons.image_not_supported_outlined,
+                  color: cs.onSurfaceVariant,
+                ),
               ),
             ),
             if (isVideo)
               ColoredBox(
                 color: Colors.black.withValues(alpha: 0.32),
                 child: const Center(
-                  child: Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 52),
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 52,
+                  ),
                 ),
               ),
           ],

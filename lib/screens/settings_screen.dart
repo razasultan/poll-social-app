@@ -39,7 +39,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _profileLoading = true;
       _loadProfile(uid);
     }
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
       if (!mounted) return;
       final uid = data.session?.user.id;
       if (uid != null && _profile == null && !_profileLoading) {
@@ -87,7 +89,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _snack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _confirmLogout() async {
@@ -95,10 +99,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Sign out'),
-        content: const Text('You will need to sign in again to post or manage your profile.'),
+        content: const Text(
+          'You will need to sign in again to post or manage your profile.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign out')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Sign out'),
+          ),
         ],
       ),
     );
@@ -169,7 +181,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Manage your profile and privacy here.',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Close'),
+          ),
         ],
       ),
     );
@@ -191,11 +206,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.settings_outlined, size: 48, color: cs.onSurfaceVariant),
+                Icon(
+                  Icons.settings_outlined,
+                  size: 48,
+                  color: cs.onSurfaceVariant,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Log in to manage your account and settings',
-                  style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 20),
@@ -246,8 +267,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     children: [
                       Icon(Icons.warning_amber_rounded, color: cs.error),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(_profileError!, style: theme.textTheme.bodyMedium)),
-                      TextButton(onPressed: () => _loadProfile(_user!.id), child: const Text('Retry')),
+                      Expanded(
+                        child: Text(
+                          _profileError!,
+                          style: theme.textTheme.bodyMedium,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => _loadProfile(_user!.id),
+                        child: const Text('Retry'),
+                      ),
                     ],
                   ),
                 ),
@@ -262,15 +291,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 title: const Text('Email'),
                 subtitle: Text(
                   signedIn ? (email ?? 'Not available') : 'Not signed in',
-                  style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ),
               const Divider(height: 1),
               ListTile(
                 leading: Icon(Icons.logout_rounded, color: cs.error),
-                title: Text('Sign out', style: TextStyle(color: cs.error, fontWeight: FontWeight.w600)),
+                title: Text(
+                  'Sign out',
+                  style: TextStyle(
+                    color: cs.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 enabled: signedIn,
-                onTap: signedIn ? _confirmLogout : () => _snack('You are not signed in.'),
+                onTap: signedIn
+                    ? _confirmLogout
+                    : () => _snack('You are not signed in.'),
               ),
             ],
           ),
@@ -284,7 +323,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('Display name, bio, location'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 enabled: signedIn && !_profileLoading,
-                onTap: signedIn ? _openEditProfile : () => _snack('Sign in to edit your profile.'),
+                onTap: signedIn
+                    ? _openEditProfile
+                    : () => _snack('Sign in to edit your profile.'),
               ),
             ],
           ),
@@ -298,7 +339,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 subtitle: const Text('View or unblock accounts'),
                 trailing: const Icon(Icons.chevron_right_rounded),
                 enabled: signedIn,
-                onTap: signedIn ? _openBlockedUsers : () => _snack('Sign in to manage blocked users.'),
+                onTap: signedIn
+                    ? _openBlockedUsers
+                    : () => _snack('Sign in to manage blocked users.'),
               ),
             ],
           ),
@@ -316,7 +359,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ListTile(
                 leading: Icon(Icons.tag_rounded, color: cs.primary),
                 title: const Text('Version'),
-                subtitle: Text(_kAppVersion, style: TextStyle(color: cs.onSurfaceVariant)),
+                subtitle: Text(
+                  _kAppVersion,
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
               ),
             ],
           ),
@@ -424,7 +470,9 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = e is PostgrestException && e.message.isNotEmpty ? e.message : 'Could not load blocked users.';
+        _error = e is PostgrestException && e.message.isNotEmpty
+            ? e.message
+            : 'Could not load blocked users.';
       });
     }
   }
@@ -441,12 +489,15 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
     return null;
   }
 
-  String _blockedId(Map<String, dynamic> row) => row['blocked_id']?.toString() ?? '';
+  String _blockedId(Map<String, dynamic> row) =>
+      row['blocked_id']?.toString() ?? '';
 
   Future<void> _unblock(Map<String, dynamic> row) async {
     final me = _user?.id;
     final blockedId = _blockedId(row);
-    if (me == null || blockedId.isEmpty || _unblocking.contains(blockedId)) return;
+    if (me == null || blockedId.isEmpty || _unblocking.contains(blockedId)) {
+      return;
+    }
 
     setState(() => _unblocking.add(blockedId));
 
@@ -457,11 +508,15 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
         _rows = _rows.where((r) => _blockedId(r) != blockedId).toList();
         _unblocking.remove(blockedId);
       });
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User unblocked')));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('User unblocked')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _unblocking.remove(blockedId));
-      final msg = e is PostgrestException && e.message.isNotEmpty ? e.message : 'Could not unblock.';
+      final msg = e is PostgrestException && e.message.isNotEmpty
+          ? e.message
+          : 'Could not unblock.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -476,88 +531,107 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        const SizedBox(height: 16),
-                        FilledButton.tonal(onPressed: _load, child: const Text('Retry')),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    FilledButton.tonal(
+                      onPressed: _load,
+                      child: const Text('Retry'),
                     ),
-                  ),
-                )
-              : _rows.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.block_rounded, size: 56, color: cs.outline),
-                            const SizedBox(height: 16),
-                            Text(
-                              'No blocked users',
-                              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Accounts you block will appear here.',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
-                            ),
-                          ],
-                        ),
+                  ],
+                ),
+              ),
+            )
+          : _rows.isEmpty
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.block_rounded, size: 56, color: cs.outline),
+                    const SizedBox(height: 16),
+                    Text(
+                      'No blocked users',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
                       ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _load,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        itemCount: _rows.length,
-                        separatorBuilder: (_, _) => Divider(height: 1, indent: 72, color: cs.outlineVariant),
-                        itemBuilder: (context, index) {
-                          final row = _rows[index];
-                          final blockedId = _blockedId(row);
-                          final prof = _nestedProfile(row) ?? {};
-                          final username = prof['username']?.toString() ?? 'Unknown user';
-                          final avatarUrl = prof['avatar_url']?.toString();
-                          final busy = _unblocking.contains(blockedId);
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Accounts you block will appear here.',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                itemCount: _rows.length,
+                separatorBuilder: (_, _) =>
+                    Divider(height: 1, indent: 72, color: cs.outlineVariant),
+                itemBuilder: (context, index) {
+                  final row = _rows[index];
+                  final blockedId = _blockedId(row);
+                  final prof = _nestedProfile(row) ?? {};
+                  final username =
+                      prof['username']?.toString() ?? 'Unknown user';
+                  final avatarUrl = prof['avatar_url']?.toString();
+                  final busy = _unblocking.contains(blockedId);
 
-                          return ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: cs.primaryContainer,
-                              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                                  ? NetworkImage(avatarUrl)
-                                  : null,
-                              child: avatarUrl == null || avatarUrl.isEmpty
-                                  ? Text(
-                                      username.isNotEmpty ? username[0].toUpperCase() : '?',
-                                      style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.w700),
-                                    )
-                                  : null,
-                            ),
-                            title: Text(username),
-                            subtitle: Text(
-                              'Blocked · interactions hidden',
-                              style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
-                            ),
-                            trailing: busy
-                                ? const SizedBox(
-                                    width: 28,
-                                    height: 28,
-                                    child: Padding(
-                                      padding: EdgeInsets.all(4),
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                  )
-                                : TextButton(onPressed: () => _unblock(row), child: const Text('Unblock')),
-                          );
-                        },
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: cs.primaryContainer,
+                      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                          ? NetworkImage(avatarUrl)
+                          : null,
+                      child: avatarUrl == null || avatarUrl.isEmpty
+                          ? Text(
+                              username.isNotEmpty
+                                  ? username[0].toUpperCase()
+                                  : '?',
+                              style: TextStyle(
+                                color: cs.onPrimaryContainer,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            )
+                          : null,
+                    ),
+                    title: Text(username),
+                    subtitle: Text(
+                      'Blocked · interactions hidden',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
                       ),
                     ),
+                    trailing: busy
+                        ? const SizedBox(
+                            width: 28,
+                            height: 28,
+                            child: Padding(
+                              padding: EdgeInsets.all(4),
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : TextButton(
+                            onPressed: () => _unblock(row),
+                            child: const Text('Unblock'),
+                          ),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -585,16 +659,23 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   late final TextEditingController _bio;
   late final TextEditingController _country;
   late final TextEditingController _city;
+  late final TextEditingController _website;
+  DateTime? _birthDate;
+  bool _birthDateCleared = false;
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     final p = widget.initialProfile;
-    _displayName = TextEditingController(text: p['display_name']?.toString() ?? '');
+    _displayName = TextEditingController(
+      text: p['display_name']?.toString() ?? '',
+    );
     _bio = TextEditingController(text: p['bio']?.toString() ?? '');
     _country = TextEditingController(text: p['country']?.toString() ?? '');
     _city = TextEditingController(text: p['city']?.toString() ?? '');
+    _website = TextEditingController(text: p['website']?.toString() ?? '');
+    _birthDate = DateTime.tryParse(p['birth_date']?.toString() ?? '');
   }
 
   @override
@@ -603,7 +684,60 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _bio.dispose();
     _country.dispose();
     _city.dispose();
+    _website.dispose();
     super.dispose();
+  }
+
+  String? _validateWebsite(String? value) {
+    final v = value?.trim() ?? '';
+    if (v.isEmpty) return null;
+    final uri = Uri.tryParse(v.contains('://') ? v : 'https://$v');
+    if (uri == null || uri.host.isEmpty || !uri.host.contains('.')) {
+      return 'Enter a valid URL';
+    }
+    return null;
+  }
+
+  Future<void> _pickBirthDate() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(now.year - 18, now.month, now.day),
+      firstDate: DateTime(now.year - 120),
+      lastDate: now,
+      helpText: 'Date of birth',
+    );
+    if (picked != null) {
+      setState(() {
+        _birthDate = picked;
+        _birthDateCleared = false;
+      });
+    }
+  }
+
+  void _clearBirthDate() {
+    setState(() {
+      _birthDate = null;
+      _birthDateCleared = true;
+    });
+  }
+
+  String _formatBirthDate(DateTime d) {
+    const months = [
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
   Future<void> _save() async {
@@ -612,12 +746,19 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     setState(() => _saving = true);
 
     try {
+      var website = _website.text.trim();
+      if (website.isNotEmpty && !website.contains('://')) {
+        website = 'https://$website';
+      }
       await widget.profileService.updateProfile(
         userId: widget.userId,
         displayName: _displayName.text.trim(),
         bio: _bio.text.trim(),
         country: _country.text.trim(),
         city: _city.text.trim(),
+        website: website,
+        birthDate: _birthDate,
+        clearBirthDate: _birthDateCleared && _birthDate == null,
       );
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -625,7 +766,9 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      final msg = e is PostgrestException && e.message.isNotEmpty ? e.message : 'Could not save profile.';
+      final msg = e is PostgrestException && e.message.isNotEmpty
+          ? e.message
+          : 'Could not save profile.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     }
   }
@@ -644,7 +787,12 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Edit profile', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                'Edit profile',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 20),
               TextFormField(
                 controller: _displayName,
@@ -685,18 +833,63 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.location_city_outlined),
                 ),
+                textInputAction: TextInputAction.next,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _website,
+                decoration: const InputDecoration(
+                  labelText: 'Website',
+                  hintText: 'yoursite.com',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link_rounded),
+                ),
+                keyboardType: TextInputType.url,
                 textInputAction: TextInputAction.done,
+                validator: _validateWebsite,
                 onFieldSubmitted: (_) => _save(),
+              ),
+              const SizedBox(height: 16),
+              InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: _pickBirthDate,
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Date of birth',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.cake_outlined),
+                    suffixIcon: _birthDate == null
+                        ? null
+                        : IconButton(
+                            tooltip: 'Clear',
+                            icon: const Icon(Icons.close_rounded),
+                            onPressed: _clearBirthDate,
+                          ),
+                  ),
+                  child: Text(
+                    _birthDate == null
+                        ? 'Not set'
+                        : _formatBirthDate(_birthDate!),
+                    style: _birthDate == null
+                        ? TextStyle(color: cs.onSurfaceVariant)
+                        : null,
+                  ),
+                ),
               ),
               const SizedBox(height: 28),
               FilledButton(
                 onPressed: _saving ? null : _save,
-                style: FilledButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
                 child: _saving
                     ? SizedBox(
                         height: 22,
                         width: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: cs.onPrimary),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: cs.onPrimary,
+                        ),
                       )
                     : const Text('Save'),
               ),

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/widgets/trending_rail.dart';
 import '../services/notification_service.dart';
 import '../widgets/auth_guard.dart';
 import 'auth/login_screen.dart';
@@ -27,6 +28,12 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _selectedIndex = 0;
 
+  /// Nested navigator for the body area, so pushed screens (poll detail,
+  /// other profiles, settings, etc.) render inside the body while the side
+  /// nav and [TrendingRail] stay fixed.
+  final GlobalKey<NavigatorState> _shellNavigatorKey =
+      GlobalKey<NavigatorState>();
+
   final ValueNotifier<int> _feedReloadToken = ValueNotifier<int>(0);
   final ValueNotifier<int> _profileReloadToken = ValueNotifier<int>(0);
 
@@ -45,16 +52,16 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _notificationService = NotificationService();
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen(
-      (data) {
-        final user = data.session?.user;
-        _syncShellNotificationBadge(user);
-        final itemCount = user == null ? 4 : 5;
-        if (_selectedIndex >= itemCount && mounted) {
-          setState(() => _selectedIndex = 0);
-        }
-      },
-    );
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
+      final user = data.session?.user;
+      _syncShellNotificationBadge(user);
+      final itemCount = user == null ? 4 : 5;
+      if (_selectedIndex >= itemCount && mounted) {
+        setState(() => _selectedIndex = 0);
+      }
+    });
     _syncShellNotificationBadge(Supabase.instance.client.auth.currentUser);
   }
 
@@ -89,7 +96,9 @@ class _MainShellState extends State<MainShell> {
       value: user.id,
     );
 
-    final channel = Supabase.instance.client.channel('shell-nav-notifications-${user.id}');
+    final channel = Supabase.instance.client.channel(
+      'shell-nav-notifications-${user.id}',
+    );
     channel
         .onPostgresChanges(
           schema: 'public',
@@ -118,9 +127,9 @@ class _MainShellState extends State<MainShell> {
           setState(() => _selectedIndex = 0);
           _feedReloadToken.value++;
           _profileReloadToken.value++;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Poll published')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Poll published')));
           final u = Supabase.instance.client.auth.currentUser;
           if (u != null) await _refreshShellUnreadBadge(u.id);
         }
@@ -133,6 +142,7 @@ class _MainShellState extends State<MainShell> {
       unawaited(_openCreate());
       return;
     }
+    _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() => _selectedIndex = index);
     final u = Supabase.instance.client.auth.currentUser;
     if (index == 3 && u != null) {
@@ -158,7 +168,9 @@ class _MainShellState extends State<MainShell> {
         _shellUnreadCount > 99 ? '99+' : '$_shellUnreadCount',
         style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w700),
       ),
-      child: Icon(active ? Icons.notifications_rounded : Icons.notifications_outlined),
+      child: Icon(
+        active ? Icons.notifications_rounded : Icons.notifications_outlined,
+      ),
     );
   }
 
@@ -180,11 +192,17 @@ class _MainShellState extends State<MainShell> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.lock_outline_rounded, size: 48, color: cs.onSurfaceVariant),
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 48,
+              color: cs.onSurfaceVariant,
+            ),
             const SizedBox(height: 16),
             Text(
               message,
-              style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -216,6 +234,10 @@ class _MainShellState extends State<MainShell> {
   /// web) to a side [NavigationRail] (desktop/wide web), mirroring how X swaps
   /// its mobile tab bar for a left-hand nav column on wider viewports.
   static const double _wideLayoutBreakpoint = 700;
+
+  /// Width above which a "Trending now" rail appears on the right, mirroring
+  /// X's third column on large desktop viewports.
+  static const double _trendingRailBreakpoint = 1100;
 
   /// Shared icon/label data for each destination, fed into both the
   /// [BottomNavigationBar] (narrow) and [NavigationRail] (wide) so the two
@@ -269,10 +291,16 @@ class _MainShellState extends State<MainShell> {
     final entries = _navEntries(context, isGuest);
     final selectedIndex = _selectedIndex < entries.length ? _selectedIndex : 0;
 
-    final body = IndexedStack(
-      index: _stackIndex,
-      sizing: StackFit.expand,
-      children: stackChildren,
+    final body = Navigator(
+      key: _shellNavigatorKey,
+      onGenerateRoute: (settings) => MaterialPageRoute<void>(
+        settings: settings,
+        builder: (context) => IndexedStack(
+          index: _stackIndex,
+          sizing: StackFit.expand,
+          children: stackChildren,
+        ),
+      ),
     );
 
     return LayoutBuilder(
@@ -298,6 +326,10 @@ class _MainShellState extends State<MainShell> {
                 ),
                 VerticalDivider(width: 1, color: cs.outlineVariant),
                 Expanded(child: body),
+                if (constraints.maxWidth >= _trendingRailBreakpoint) ...[
+                  VerticalDivider(width: 1, color: cs.outlineVariant),
+                  TrendingRail(reloadToken: _feedReloadToken),
+                ],
               ],
             ),
           );

@@ -1,4 +1,7 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'core/config/app_config.dart';
 import 'core/config/supabase_config.dart';
@@ -9,9 +12,18 @@ import 'screens/backend_test_screen.dart';
 import 'screens/embed_poll_screen.dart';
 import 'screens/public_poll_screen.dart';
 
+/// Kept alive for the app's lifetime so the semantics (accessibility) tree
+/// stays enabled on web — this lets E2E tools like Playwright query the DOM
+/// by ARIA role/label instead of reading the CanvasKit/Skwasm canvas.
+// ignore: unused_element
+SemanticsHandle? _semanticsHandle;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configurePathUrlStrategy();
+  if (kIsWeb) {
+    _semanticsHandle = SemanticsBinding.instance.ensureSemantics();
+  }
 
   if (!AppConfig.isSupabaseConfigured) {
     debugPrint('[App] ${AppConfig.missingConfigMessage}');
@@ -30,10 +42,12 @@ Future<void> main() async {
   } catch (e, st) {
     debugPrint('[App] Supabase initialization failed: $e');
     debugPrint('$st');
-    runApp(_StartupErrorApp(
-      title: 'Supabase initialization failed',
-      message: e.toString(),
-    ));
+    runApp(
+      _StartupErrorApp(
+        title: 'Supabase initialization failed',
+        message: e.toString(),
+      ),
+    );
     return;
   }
 
@@ -55,25 +69,47 @@ class MyApp extends StatelessWidget {
 
   static ThemeData _buildTheme(Brightness brightness) {
     final isLight = brightness == Brightness.light;
-    final scheme = ColorScheme.fromSeed(
-      seedColor: _xBlue,
-      brightness: brightness,
-    ).copyWith(
-      primary: _xBlue,
-      onPrimary: Colors.white,
-      surface: isLight ? Colors.white : const Color(0xFF000000),
-      onSurface: isLight ? const Color(0xFF0F1419) : const Color(0xFFE7E9EA),
-      outlineVariant: isLight ? const Color(0xFFEFF3F4) : const Color(0xFF2F3336),
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: _xBlue,
+          brightness: brightness,
+        ).copyWith(
+          primary: _xBlue,
+          onPrimary: Colors.white,
+          surface: isLight ? Colors.white : const Color(0xFF000000),
+          onSurface: isLight
+              ? const Color(0xFF0F1419)
+              : const Color(0xFFE7E9EA),
+          outlineVariant: isLight
+              ? const Color(0xFFEFF3F4)
+              : const Color(0xFF2F3336),
+        );
 
     final hairline = scheme.outlineVariant;
+
+    // Type pairing: Outfit for display/headings (geometric, confident) and
+    // Plus Jakarta Sans for body copy (warm, highly legible at small sizes).
+    final bodyTextTheme = GoogleFonts.plusJakartaSansTextTheme(
+      Typography.material2021(platform: TargetPlatform.android).black,
+    ).apply(bodyColor: scheme.onSurface, displayColor: scheme.onSurface);
+
+    TextStyle display(
+      TextStyle? base, {
+      required FontWeight weight,
+      required double tracking,
+    }) {
+      return GoogleFonts.outfit(
+        textStyle: base,
+        fontWeight: weight,
+        letterSpacing: tracking,
+      );
+    }
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: scheme.surface,
-      fontFamily: 'Roboto',
       visualDensity: VisualDensity.standard,
       splashFactory: InkRipple.splashFactory,
       appBarTheme: AppBarTheme(
@@ -83,12 +119,11 @@ class MyApp extends StatelessWidget {
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
         centerTitle: false,
-        titleTextStyle: TextStyle(
-          color: scheme.onSurface,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
-          letterSpacing: -0.3,
-        ),
+        titleTextStyle: display(
+          const TextStyle(fontSize: 20, color: null),
+          weight: FontWeight.w700,
+          tracking: -0.4,
+        ).copyWith(color: scheme.onSurface),
       ),
       dividerTheme: DividerThemeData(color: hairline, thickness: 1, space: 1),
       cardTheme: CardThemeData(
@@ -119,14 +154,14 @@ class MyApp extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: scheme.onSurface,
           foregroundColor: scheme.surface,
-          textStyle: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.1),
+          textStyle: display(null, weight: FontWeight.w700, tracking: -0.1),
           shape: const StadiumBorder(),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: scheme.primary,
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: display(null, weight: FontWeight.w600, tracking: -0.1),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -145,17 +180,53 @@ class MyApp extends StatelessWidget {
           borderSide: BorderSide(color: scheme.primary, width: 1.6),
         ),
       ),
-      textTheme: Typography.material2021(platform: TargetPlatform.android)
-          .black
-          .apply(
-            bodyColor: scheme.onSurface,
-            displayColor: scheme.onSurface,
-          )
-          .copyWith(
-            titleLarge: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.4),
-            titleMedium: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.2),
-            titleSmall: const TextStyle(fontWeight: FontWeight.w700, letterSpacing: -0.1),
-          ),
+      textTheme: bodyTextTheme.copyWith(
+        displayLarge: display(
+          bodyTextTheme.displayLarge,
+          weight: FontWeight.w800,
+          tracking: -1.0,
+        ),
+        displayMedium: display(
+          bodyTextTheme.displayMedium,
+          weight: FontWeight.w800,
+          tracking: -0.8,
+        ),
+        displaySmall: display(
+          bodyTextTheme.displaySmall,
+          weight: FontWeight.w700,
+          tracking: -0.6,
+        ),
+        headlineLarge: display(
+          bodyTextTheme.headlineLarge,
+          weight: FontWeight.w800,
+          tracking: -0.6,
+        ),
+        headlineMedium: display(
+          bodyTextTheme.headlineMedium,
+          weight: FontWeight.w800,
+          tracking: -0.5,
+        ),
+        headlineSmall: display(
+          bodyTextTheme.headlineSmall,
+          weight: FontWeight.w800,
+          tracking: -0.4,
+        ),
+        titleLarge: display(
+          bodyTextTheme.titleLarge,
+          weight: FontWeight.w800,
+          tracking: -0.4,
+        ),
+        titleMedium: display(
+          bodyTextTheme.titleMedium,
+          weight: FontWeight.w700,
+          tracking: -0.2,
+        ),
+        titleSmall: display(
+          bodyTextTheme.titleSmall,
+          weight: FontWeight.w700,
+          tracking: -0.1,
+        ),
+      ),
     );
   }
 
@@ -167,9 +238,7 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       home: const AuthGate(),
       debugShowCheckedModeBanner: false,
-      routes: {
-        '/debug': (context) => const BackendTestScreen(),
-      },
+      routes: {'/debug': (context) => const BackendTestScreen()},
       onGenerateRoute: (settings) {
         final embedSlug = embedPollShareSlugFromRouteName(settings.name);
         if (embedSlug != null) {
@@ -225,10 +294,7 @@ String? embedPollShareSlugFromRouteName(String? routeName) {
 
 /// Shown when dart-defines are missing or Supabase fails to start.
 class _StartupErrorApp extends StatelessWidget {
-  const _StartupErrorApp({
-    required this.title,
-    required this.message,
-  });
+  const _StartupErrorApp({required this.title, required this.message});
 
   final String title;
   final String message;
@@ -243,10 +309,7 @@ class _StartupErrorApp extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
+                Text(title, style: Theme.of(context).textTheme.headlineSmall),
                 const SizedBox(height: 16),
                 Text(message),
                 const SizedBox(height: 24),

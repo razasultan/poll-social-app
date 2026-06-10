@@ -68,6 +68,40 @@ class SocialService {
     }
   }
 
+  /// A handful of profiles [currentUserId] doesn't already follow, for the
+  /// "You might like" suggestions rail. Returns an empty list on failure
+  /// (e.g. RLS) rather than throwing.
+  Future<List<Map<String, dynamic>>> getSuggestedUsers({
+    required String? currentUserId,
+    int limit = 3,
+  }) async {
+    try {
+      final excludeIds = <String>{};
+      if (currentUserId != null) {
+        excludeIds.add(currentUserId);
+        final following = await _supabase
+            .from('follows')
+            .select('following_id')
+            .eq('follower_id', currentUserId);
+        for (final row in following) {
+          final id = (row as Map)['following_id']?.toString();
+          if (id != null) excludeIds.add(id);
+        }
+      }
+
+      var query = _supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url, bio');
+      if (excludeIds.isNotEmpty) {
+        query = query.not('id', 'in', '(${excludeIds.join(',')})');
+      }
+      final rows = await query.order('created_at', ascending: false).limit(limit);
+      return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
   /// Alias for [getFollowersCount].
   Future<int> countFollowers(String userId) => getFollowersCount(userId);
 
