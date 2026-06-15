@@ -69,7 +69,10 @@ class PollService {
     for (final tag in tags) {
       final cleaned = tag.trim();
       if (cleaned.isEmpty) continue;
-      final id = await _supabase.rpc('get_or_create_hashtag', params: {'tag_name': cleaned});
+      final id = await _supabase.rpc(
+        'get_or_create_hashtag',
+        params: {'tag_name': cleaned},
+      );
       if (id != null) hashtagIds.add(id.toString());
     }
     if (hashtagIds.isEmpty) return;

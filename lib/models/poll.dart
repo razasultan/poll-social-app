@@ -3,9 +3,5 @@ class Poll {
   final String question;
   final List<String> options;
 
-  Poll({
-    required this.id,
-    required this.question,
-    required this.options,
-  });
+  Poll({required this.id, required this.question, required this.options});
 }

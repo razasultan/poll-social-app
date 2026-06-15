@@ -5,9 +5,7 @@ void main() {
   testWidgets('MaterialApp smoke build', (WidgetTester tester) async {
     await tester.pumpWidget(
       const MaterialApp(
-        home: Scaffold(
-          body: Center(child: Text('Poll Social')),
-        ),
+        home: Scaffold(body: Center(child: Text('Poll Social'))),
       ),
     );
 

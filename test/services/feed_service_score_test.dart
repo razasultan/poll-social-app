@@ -67,7 +67,10 @@ void main() {
 
     test('penalizes older polls relative to fresher ones', () {
       final fresh = poll(id: 'fresh', createdAt: now);
-      final old = poll(id: 'old', createdAt: now.subtract(const Duration(hours: 50)));
+      final old = poll(
+        id: 'old',
+        createdAt: now.subtract(const Duration(hours: 50)),
+      );
 
       final freshScore = FeedService.computeForYouScore(
         fresh,
@@ -86,7 +89,12 @@ void main() {
     });
 
     test('combines all factors additively', () {
-      final p = poll(id: 'p1', userId: 'friend', votes: 20, createdAt: now.subtract(const Duration(hours: 10)));
+      final p = poll(
+        id: 'p1',
+        userId: 'friend',
+        votes: 20,
+        createdAt: now.subtract(const Duration(hours: 10)),
+      );
       final score = FeedService.computeForYouScore(
         p,
         followingUserIds: {'friend'},

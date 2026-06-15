@@ -5,5 +5,6 @@ class FeedPage {
   final List<dynamic> items;
   final bool hasMore;
 
-  static FeedPage empty() => FeedPage(items: List<dynamic>.empty(growable: false), hasMore: false);
+  static FeedPage empty() =>
+      FeedPage(items: List<dynamic>.empty(growable: false), hasMore: false);
 }

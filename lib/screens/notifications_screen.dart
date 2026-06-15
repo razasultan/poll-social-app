@@ -54,8 +54,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     _unsubscribeRealtime();
     final filter = _userNotificationsFilter(userId);
 
-    final channel =
-        Supabase.instance.client.channel('notifications-screen-$userId');
+    final channel = Supabase.instance.client.channel(
+      'notifications-screen-$userId',
+    );
 
     channel
         .onPostgresChanges(
@@ -163,7 +164,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     } on PostgrestException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message.isNotEmpty ? e.message : 'Could not update')),
+        SnackBar(
+          content: Text(e.message.isNotEmpty ? e.message : 'Could not update'),
+        ),
       );
     } catch (_) {
       if (!mounted) return;
@@ -190,7 +193,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       } on PostgrestException catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message.isNotEmpty ? e.message : 'Could not update')),
+          SnackBar(
+            content: Text(
+              e.message.isNotEmpty ? e.message : 'Could not update',
+            ),
+          ),
         );
         return;
       } catch (_) {
@@ -202,7 +209,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
     }
 
-    final pollId = item['related_poll_id']?.toString() ?? item['poll_id']?.toString();
+    final pollId =
+        item['related_poll_id']?.toString() ?? item['poll_id']?.toString();
     if (!mounted) return;
     if (pollId != null && pollId.isNotEmpty) {
       Navigator.of(context).push<void>(
@@ -236,7 +244,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               onPressed: _markAllRead,
               child: Text(
                 'Mark all read',
-                style: TextStyle(color: cs.primary, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
         ],
@@ -248,11 +259,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.notifications_off_outlined, size: 48, color: cs.onSurfaceVariant),
+                    Icon(
+                      Icons.notifications_off_outlined,
+                      size: 48,
+                      color: cs.onSurfaceVariant,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Login to view notifications',
-                      style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 20),
@@ -261,14 +278,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       children: [
                         OutlinedButton(
                           onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const LoginScreen(),
+                            ),
                           ),
                           child: const Text('Login'),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
                           onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const SignupScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const SignupScreen(),
+                            ),
                           ),
                           child: const Text('Sign up'),
                         ),
@@ -279,47 +300,52 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               ),
             )
           : _loading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(_error!, textAlign: TextAlign.center),
-                            const SizedBox(height: 16),
-                            FilledButton.tonal(onPressed: _load, child: const Text('Retry')),
-                          ],
-                        ),
-                      ),
-                    )
-                  : _notifications.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No notifications yet',
-                            style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _load,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            itemCount: _notifications.length,
-                            separatorBuilder: (_, _) => Divider(
-                              height: 1,
-                              indent: 72,
-                              color: cs.outlineVariant.withValues(alpha: 0.4),
-                            ),
-                            itemBuilder: (context, index) {
-                              return _NotificationTile(
-                                item: _notifications[index],
-                                isRead: _isRead(_notifications[index]),
-                                onTap: () => _onTapNotification(_notifications[index]),
-                              );
-                            },
-                          ),
-                        ),
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 16),
+                    FilledButton.tonal(
+                      onPressed: _load,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : _notifications.isEmpty
+          ? Center(
+              child: Text(
+                'No notifications yet',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: _notifications.length,
+                separatorBuilder: (_, _) => Divider(
+                  height: 1,
+                  indent: 72,
+                  color: cs.outlineVariant.withValues(alpha: 0.4),
+                ),
+                itemBuilder: (context, index) {
+                  return _NotificationTile(
+                    item: _notifications[index],
+                    isRead: _isRead(_notifications[index]),
+                    onTap: () => _onTapNotification(_notifications[index]),
+                  );
+                },
+              ),
+            ),
     );
   }
 }
@@ -412,7 +438,11 @@ class _NotificationTile extends StatelessWidget {
                   CircleAvatar(
                     radius: 22,
                     backgroundColor: cs.surfaceContainerHighest,
-                    child: Icon(_iconForType(type), color: cs.primary, size: 22),
+                    child: Icon(
+                      _iconForType(type),
+                      color: cs.primary,
+                      size: 22,
+                    ),
                   ),
                   if (!isRead)
                     Positioned(

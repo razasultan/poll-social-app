@@ -598,7 +598,9 @@ class _PollCardState extends State<PollCard> {
                   decoration: BoxDecoration(
                     color: cs.primary.withValues(alpha: 0.06),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: cs.primary.withValues(alpha: 0.32)),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.32),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -650,7 +652,8 @@ class _PollCardState extends State<PollCard> {
                           child: !showResults
                               ? Column(
                                   key: const ValueKey<String>('poll_choices'),
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     for (final o in _options)
                                       PollOptionButton(
@@ -668,7 +671,8 @@ class _PollCardState extends State<PollCard> {
                                   key: ValueKey<String>(
                                     'poll_results_$_selectedOptionId',
                                   ),
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     for (final o in _options)
                                       PollResultBar(

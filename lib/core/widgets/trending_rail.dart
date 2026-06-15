@@ -155,8 +155,7 @@ class _TrendingRailState extends State<TrendingRail> {
                         _TrendingTile(
                           rank: i + 1,
                           question:
-                              (items[i] as Map?)?['question']?.toString() ??
-                              '',
+                              (items[i] as Map?)?['question']?.toString() ?? '',
                           votes: _voteCountOf(items[i]),
                           onTap: () {
                             final id = (items[i] as Map?)?['id']?.toString();
@@ -379,8 +378,7 @@ class _SuggestedUserTileState extends State<_SuggestedUserTile> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: cs.primaryContainer,
-                backgroundImage:
-                    avatarUrl != null && avatarUrl.isNotEmpty
+                backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
                     ? NetworkImage(avatarUrl)
                     : null,
                 child: avatarUrl == null || avatarUrl.isEmpty

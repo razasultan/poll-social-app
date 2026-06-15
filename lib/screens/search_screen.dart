@@ -156,7 +156,9 @@ class _SearchScreenState extends State<SearchScreen>
     } on PostgrestException catch (e) {
       if (!mounted || id != _requestId) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message.isNotEmpty ? e.message : 'Search failed')),
+        SnackBar(
+          content: Text(e.message.isNotEmpty ? e.message : 'Search failed'),
+        ),
       );
       setState(() {
         _clearResultsForTab(tabIdx);
@@ -258,7 +260,9 @@ class _SearchScreenState extends State<SearchScreen>
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
-                  borderSide: BorderSide(color: cs.primary.withValues(alpha: 0.55)),
+                  borderSide: BorderSide(
+                    color: cs.primary.withValues(alpha: 0.55),
+                  ),
                 ),
               ),
               onChanged: (_) {
@@ -280,7 +284,8 @@ class _SearchScreenState extends State<SearchScreen>
                   builder: (ctx, item) => _PollSearchTile(
                     item: item,
                     onTap: () {
-                      final id = item['id']?.toString() ?? item['poll_id']?.toString();
+                      final id =
+                          item['id']?.toString() ?? item['poll_id']?.toString();
                       if (id == null || id.isEmpty) return;
                       Navigator.of(ctx).push<void>(
                         MaterialPageRoute<void>(
@@ -299,10 +304,13 @@ class _SearchScreenState extends State<SearchScreen>
                   builder: (ctx, item) => _UserSearchTile(
                     item: item,
                     onTap: () {
-                      final userId = item['id']?.toString() ?? item['user_id']?.toString();
+                      final userId =
+                          item['id']?.toString() ?? item['user_id']?.toString();
                       if (userId == null || userId.isEmpty) {
                         ScaffoldMessenger.of(ctx).showSnackBar(
-                          const SnackBar(content: Text('Could not open profile')),
+                          const SnackBar(
+                            content: Text('Could not open profile'),
+                          ),
                         );
                         return;
                       }
@@ -320,7 +328,9 @@ class _SearchScreenState extends State<SearchScreen>
                     item: item,
                     onTap: () {
                       ScaffoldMessenger.of(ctx).showSnackBar(
-                        const SnackBar(content: Text('Hashtag feed coming soon')),
+                        const SnackBar(
+                          content: Text('Hashtag feed coming soon'),
+                        ),
                       );
                     },
                   ),
@@ -364,7 +374,8 @@ class _SearchResultsTab extends StatelessWidget {
   final List<Map<String, dynamic>> results;
   final String emptyLabel;
   final String initialHint;
-  final Widget Function(BuildContext context, Map<String, dynamic> item) builder;
+  final Widget Function(BuildContext context, Map<String, dynamic> item)
+  builder;
 
   @override
   Widget build(BuildContext context) {
@@ -378,7 +389,9 @@ class _SearchResultsTab extends StatelessWidget {
           child: Text(
             initialHint,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
         ),
       );
@@ -392,7 +405,9 @@ class _SearchResultsTab extends StatelessWidget {
       return Center(
         child: Text(
           emptyLabel,
-          style: theme.textTheme.bodyLarge?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       );
     }
@@ -402,7 +417,10 @@ class _SearchResultsTab extends StatelessWidget {
         ListView.separated(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           itemCount: results.length,
-          separatorBuilder: (_, _) => Divider(height: 1, color: cs.outlineVariant.withValues(alpha: 0.35)),
+          separatorBuilder: (_, _) => Divider(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.35),
+          ),
           itemBuilder: (context, index) => builder(context, results[index]),
         ),
         if (loading && results.isNotEmpty)
@@ -477,12 +495,18 @@ class _PollSearchTile extends StatelessWidget {
             const SizedBox(height: 6),
             Row(
               children: [
-                Icon(Icons.person_outline_rounded, size: 16, color: cs.onSurfaceVariant),
+                Icon(
+                  Icons.person_outline_rounded,
+                  size: 16,
+                  color: cs.onSurfaceVariant,
+                ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     user,
-                    style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -490,7 +514,9 @@ class _PollSearchTile extends StatelessWidget {
                 if (created.isNotEmpty)
                   Text(
                     created,
-                    style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
                   ),
               ],
             ),
@@ -527,8 +553,9 @@ class _UserSearchTile extends StatelessWidget {
             CircleAvatar(
               radius: 22,
               backgroundColor: cs.primaryContainer,
-              backgroundImage:
-                  avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? NetworkImage(avatarUrl)
+                  : null,
               child: avatarUrl == null || avatarUrl.isEmpty
                   ? Text(
                       username.isNotEmpty ? username[0].toUpperCase() : '?',
@@ -546,13 +573,17 @@ class _UserSearchTile extends StatelessWidget {
                 children: [
                   Text(
                     username,
-                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   if (displayName.isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       displayName,
-                      style: theme.textTheme.bodySmall?.copyWith(color: cs.primary),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.primary,
+                      ),
                     ),
                   ],
                   if (bio.isNotEmpty) ...[
@@ -586,9 +617,9 @@ class _HashtagSearchTile extends StatelessWidget {
   static String _label(Map<String, dynamic> item) {
     final raw =
         item['hashtag']?.toString() ??
-            item['tag']?.toString() ??
-            item['name']?.toString() ??
-            '';
+        item['tag']?.toString() ??
+        item['name']?.toString() ??
+        '';
     final s = raw.trim();
     if (s.isEmpty) return '#';
     return s.startsWith('#') ? s : '#$s';
@@ -666,7 +697,9 @@ class _TopicSearchTile extends StatelessWidget {
                 Expanded(
                   child: Text(
                     name,
-                    style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ],

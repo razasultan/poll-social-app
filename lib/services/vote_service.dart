@@ -38,7 +38,9 @@ class VoteService {
     const chunkSize = 80;
     final out = <String>{};
     for (var i = 0; i < pollIds.length; i += chunkSize) {
-      final end = i + chunkSize > pollIds.length ? pollIds.length : i + chunkSize;
+      final end = i + chunkSize > pollIds.length
+          ? pollIds.length
+          : i + chunkSize;
       final chunk = pollIds.sublist(i, end);
       try {
         final rows = await _supabase

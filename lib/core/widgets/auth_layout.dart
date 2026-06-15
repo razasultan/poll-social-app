@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../constants/branding.dart';
+import 'brand_mark.dart';
+
 /// Shared auth-screen scaffold body. On narrow viewports it just centers
 /// [child] (a [Form]) in a scrollable column, matching the previous mobile
 /// layout. On wide (desktop web) viewports it adds a branded left panel so
@@ -111,7 +114,7 @@ class _BrandPanel extends StatelessWidget {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(48),
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 520),
+                  constraints: const BoxConstraints(minHeight: 640),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -119,36 +122,42 @@ class _BrandPanel extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          const Icon(
-                            Icons.how_to_vote_rounded,
-                            color: Color(0xFF1D9BF0),
-                            size: 34,
+                          const BrandMark(
+                            tile: true,
+                            color: Colors.white,
+                            background: Color(0xFF1D9BF0),
                           ),
                           const SizedBox(width: 12),
-                          Text(
-                            'Poll Social',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                          const BrandWordmark(color: Colors.white),
                         ],
                       ),
                       const SizedBox(height: 36),
-                      Text(
-                        'Where your\nopinion is\nthe headline.',
-                        style: theme.textTheme.displaySmall?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                          height: 1.12,
+                      SizedBox(
+                        width: 360,
+                        child: Text.rich(
+                          TextSpan(
+                            style: theme.textTheme.displaySmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              height: 1.15,
+                            ),
+                            children: [
+                              TextSpan(text: Branding.heroTitlePrefix),
+                              TextSpan(
+                                text: Branding.heroTitleHighlight,
+                                style: const TextStyle(
+                                  color: Color(0xFF1D9BF0),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
                       SizedBox(
-                        width: 320,
+                        width: 340,
                         child: Text(
-                          'Ask the question, drop the options, and watch real opinions '
-                          'roll in — live.',
+                          Branding.heroSubtitle,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: Colors.white.withValues(alpha: 0.65),
                             height: 1.4,
@@ -157,6 +166,15 @@ class _BrandPanel extends StatelessWidget {
                       ),
                       const SizedBox(height: 40),
                       const _PollPreviewCard(),
+                      const SizedBox(height: 12),
+                      Text(
+                        '20.4K votes · 18.2K comments',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.45),
+                        ),
+                      ),
+                      const SizedBox(height: 32),
+                      const _TrustBadgeRow(),
                     ],
                   ),
                 ),
@@ -185,13 +203,13 @@ class _GhostCircle extends StatelessWidget {
   }
 }
 
-/// A miniature poll-result card matching the live feed's visual language —
-/// gives the brand panel a concrete sense of "this is the product".
+/// An X-style social poll preview card — gives the brand panel a concrete
+/// sense of "this is the product". Mock data only, presentational.
 class _PollPreviewCard extends StatelessWidget {
   const _PollPreviewCard();
 
   static const _entries = [
-    (label: 'Yes, every week', fraction: 0.64, selected: true),
+    (label: 'Yes, every week', fraction: 0.66, selected: true),
     (label: 'A few days', fraction: 0.24, selected: false),
     (label: 'No, never', fraction: 0.12, selected: false),
   ];
@@ -200,90 +218,109 @@ class _PollPreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      width: 320,
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          width: 320,
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1D9BF0),
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: const Text(
-                  'P',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
+              Row(
+                children: [
+                  const CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Color(0xFF1D9BF0),
+                    child: Text(
+                      'AJ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12,
+                      ),
+                    ),
                   ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Alex Johnson',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Icon(
+                          Icons.verified_rounded,
+                          size: 15,
+                          color: Color(0xFF1D9BF0),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '· 2h',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.45),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Remote work increased my productivity. Should remote work '
+                'be the default?',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Poll Social · now',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    fontWeight: FontWeight.w600,
-                  ),
+              const SizedBox(height: 14),
+              for (final e in _entries) ...[
+                _PreviewResultBar(
+                  label: e.label,
+                  fraction: e.fraction,
+                  selected: e.selected,
                 ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF00BA7C).withValues(alpha: 0.18),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  'LIVE',
-                  style: TextStyle(
-                    color: Color(0xFF00BA7C),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 10,
-                    letterSpacing: 0.6,
-                  ),
-                ),
-              ),
+                const SizedBox(height: 8),
+              ],
             ],
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Should remote work be the default?',
-            style: theme.textTheme.titleSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              height: 1.3,
+        ),
+        Positioned(
+          top: -10,
+          right: -10,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1D9BF0),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black, width: 2),
+            ),
+            child: Text(
+              '3.2k',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
             ),
           ),
-          const SizedBox(height: 14),
-          for (final e in _entries) ...[
-            _PreviewResultBar(
-              label: e.label,
-              fraction: e.fraction,
-              selected: e.selected,
-            ),
-            const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 2),
-          Text(
-            '12.4K votes · Ends in 6h',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.45),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -358,6 +395,74 @@ class _PreviewResultBar extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Row of small trust/value badges shown under the poll preview card.
+class _TrustBadgeRow extends StatelessWidget {
+  const _TrustBadgeRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _TrustBadge(
+          icon: Icons.groups_rounded,
+          color: Color(0xFF00BA7C),
+          label: 'Real people',
+        ),
+        _TrustBadge(
+          icon: Icons.bar_chart_rounded,
+          color: Color(0xFF1D9BF0),
+          label: 'Live results',
+        ),
+        _TrustBadge(
+          icon: Icons.verified_user_rounded,
+          color: Color(0xFFA78BFA),
+          label: 'Built on trust',
+        ),
+      ],
+    );
+  }
+}
+
+class _TrustBadge extends StatelessWidget {
+  const _TrustBadge({
+    required this.icon,
+    required this.color,
+    required this.label,
+  });
+
+  final IconData icon;
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.18),
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 18, color: color),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

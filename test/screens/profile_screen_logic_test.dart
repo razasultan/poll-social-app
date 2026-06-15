@@ -76,40 +76,79 @@ void main() {
   group('profileErrorMessage', () {
     test('maps "0 rows" / PGRST116 to a not-found message', () {
       expect(
-        profileErrorMessage(const PostgrestException(message: '0 rows returned', code: 'PGRST116')),
+        profileErrorMessage(
+          const PostgrestException(
+            message: '0 rows returned',
+            code: 'PGRST116',
+          ),
+        ),
         'Profile not found.',
       );
       expect(
-        profileErrorMessage(const PostgrestException(message: 'Results contain 0 rows')),
+        profileErrorMessage(
+          const PostgrestException(message: 'Results contain 0 rows'),
+        ),
         'Profile not found.',
       );
     });
 
     test('falls back to the exception message when present', () {
       expect(
-        profileErrorMessage(const PostgrestException(message: 'permission denied')),
+        profileErrorMessage(
+          const PostgrestException(message: 'permission denied'),
+        ),
         'permission denied',
       );
     });
 
     test('uses a generic message for non-Postgrest errors', () {
-      expect(profileErrorMessage(Exception('boom')), 'Could not load profile. Check your connection.');
+      expect(
+        profileErrorMessage(Exception('boom')),
+        'Could not load profile. Check your connection.',
+      );
     });
   });
 
   group('isDuplicateFollowError', () {
     test('detects unique-violation error code 23505', () {
-      expect(isDuplicateFollowError(const PostgrestException(message: 'oops', code: '23505')), isTrue);
+      expect(
+        isDuplicateFollowError(
+          const PostgrestException(message: 'oops', code: '23505'),
+        ),
+        isTrue,
+      );
     });
 
     test('detects duplicate-related wording in the message', () {
-      expect(isDuplicateFollowError(const PostgrestException(message: 'duplicate key value violates constraint')), isTrue);
-      expect(isDuplicateFollowError(const PostgrestException(message: 'relation already exists')), isTrue);
-      expect(isDuplicateFollowError(const PostgrestException(message: 'violates unique constraint')), isTrue);
+      expect(
+        isDuplicateFollowError(
+          const PostgrestException(
+            message: 'duplicate key value violates constraint',
+          ),
+        ),
+        isTrue,
+      );
+      expect(
+        isDuplicateFollowError(
+          const PostgrestException(message: 'relation already exists'),
+        ),
+        isTrue,
+      );
+      expect(
+        isDuplicateFollowError(
+          const PostgrestException(message: 'violates unique constraint'),
+        ),
+        isTrue,
+      );
     });
 
     test('returns false for unrelated errors', () {
-      expect(isDuplicateFollowError(const PostgrestException(message: 'permission denied', code: '42501')), isFalse);
+      expect(
+        isDuplicateFollowError(
+          const PostgrestException(message: 'permission denied', code: '42501'),
+        ),
+        isFalse,
+      );
     });
   });
 }

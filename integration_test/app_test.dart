@@ -1,7 +1,9 @@
 // E2E tests that drive the real app against the DEV Supabase backend.
 //
-// Run with (from the project root, with Chrome available):
-//   flutter test integration_test/app_test.dart -d chrome \
+// NOTE: as of Flutter 3.41.6, `-d chrome` is NOT supported for
+// integration_test ("Web devices are not supported for integration tests
+// yet"). Run against a desktop target instead, e.g. (from the project root):
+//   flutter test integration_test/app_test.dart -d windows \
 //     --dart-define=APP_ENV=dev \
 //     --dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co \
 //     --dart-define=SUPABASE_ANON_KEY=<dev anon key>
@@ -62,7 +64,9 @@ void main() {
     await _signOutIfNeeded();
   });
 
-  testWidgets('shows an error when signing in with invalid credentials', (tester) async {
+  testWidgets('shows an error when signing in with invalid credentials', (
+    tester,
+  ) async {
     await _signOutIfNeeded();
 
     await tester.pumpWidget(const MyApp());
@@ -72,7 +76,8 @@ void main() {
 
     await _enterCredentialsAndSubmit(
       tester,
-      email: 'no-such-user-${DateTime.now().millisecondsSinceEpoch}@example.com',
+      email:
+          'no-such-user-${DateTime.now().millisecondsSinceEpoch}@example.com',
       password: 'wrong-password-123',
     );
 
@@ -91,7 +96,11 @@ void main() {
 
       // --- Sign in -----------------------------------------------------------
       expect(find.text('Welcome back'), findsOneWidget);
-      await _enterCredentialsAndSubmit(tester, email: _testEmail, password: _testPassword);
+      await _enterCredentialsAndSubmit(
+        tester,
+        email: _testEmail,
+        password: _testPassword,
+      );
 
       // AuthGate swaps to MainShell once the auth stream emits a session.
       expect(find.byType(BottomNavigationBar), findsOneWidget);
@@ -105,7 +114,10 @@ void main() {
       await _settle(tester);
       expect(find.byType(CreatePollScreen), findsOneWidget);
 
-      await tester.enterText(find.widgetWithText(TextFormField, 'Question'), uniqueQuestion);
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Question'),
+        uniqueQuestion,
+      );
 
       // Drag directly on the (always-present) CreatePollScreen rather than
       // depending on a Scrollable finder — the form's Scrollable set shifts as
@@ -118,17 +130,30 @@ void main() {
           await tester.drag(createPollScreen, const Offset(0, -300));
           await _settle(tester);
         }
-        expect(tester.any(target), isTrue, reason: 'Could not scroll target into view');
+        expect(
+          tester.any(target),
+          isTrue,
+          reason: 'Could not scroll target into view',
+        );
       }
 
-      await tester.enterText(find.widgetWithText(TextFormField, 'Option 1'), 'Option A');
-      await tester.enterText(find.widgetWithText(TextFormField, 'Option 2'), 'Option B');
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Option 1'),
+        'Option A',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextFormField, 'Option 2'),
+        'Option B',
+      );
       await _settle(tester);
 
       // The remaining sections live further down the form's ListView — the
       // SliverChildListDelegate only materializes elements once they're
       // scrolled into the viewport, so scroll each into view before use.
-      final topicSearchField = find.widgetWithText(TextFormField, 'Search topics');
+      final topicSearchField = find.widgetWithText(
+        TextFormField,
+        'Search topics',
+      );
       await scrollFormUntilVisible(topicSearchField);
       await _settle(tester);
 
@@ -174,8 +199,11 @@ void main() {
 
       final questionFinder = find.text(uniqueQuestion);
       final feedScrollable = find.byType(Scrollable).first;
-      expect(await findInScrollable(questionFinder, feedScrollable), isTrue,
-          reason: 'Newly published poll should appear in the Latest feed');
+      expect(
+        await findInScrollable(questionFinder, feedScrollable),
+        isTrue,
+        reason: 'Newly published poll should appear in the Latest feed',
+      );
 
       // --- Verify it appears on the user's own profile (Bug #4 regression) ---
       await tester.tap(find.text('Profile'));
@@ -186,18 +214,27 @@ void main() {
       expect(find.widgetWithText(Tab, 'Liked'), findsOneWidget);
 
       final profileScrollable = find.byType(Scrollable).first;
-      expect(await findInScrollable(questionFinder, profileScrollable), isTrue,
-          reason: 'Newly published poll should appear on the author\'s own profile '
-              'immediately (validates the profile-reload-token fix)');
+      expect(
+        await findInScrollable(questionFinder, profileScrollable),
+        isTrue,
+        reason:
+            'Newly published poll should appear on the author\'s own profile '
+            'immediately (validates the profile-reload-token fix)',
+      );
 
       // --- Like the poll from the profile list --------------------------------
       // Scope to descendants of ProfileScreen — MainShell's IndexedStack keeps
       // the Latest feed mounted (and therefore matchable) in the background,
       // so an unscoped search could find/tap the wrong (offstage) PollCard.
-      final pollCardFinder = find.ancestor(
-        of: find.descendant(of: find.byType(ProfileScreen), matching: questionFinder),
-        matching: find.byType(PollCard),
-      ).first;
+      final pollCardFinder = find
+          .ancestor(
+            of: find.descendant(
+              of: find.byType(ProfileScreen),
+              matching: questionFinder,
+            ),
+            matching: find.byType(PollCard),
+          )
+          .first;
       final likeIcon = find.descendant(
         of: pollCardFinder,
         matching: find.byIcon(Icons.favorite_border_rounded),
@@ -231,8 +268,12 @@ void main() {
       await tester.fling(likedScrollable, const Offset(0, 400), 800);
       await tester.pumpAndSettle(const Duration(seconds: 1));
 
-      expect(await findInScrollable(questionFinder, likedScrollable), isTrue,
-          reason: 'A liked poll should show up under the Liked tab on the profile');
+      expect(
+        await findInScrollable(questionFinder, likedScrollable),
+        isTrue,
+        reason:
+            'A liked poll should show up under the Liked tab on the profile',
+      );
     },
     timeout: const Timeout(Duration(minutes: 5)),
   );

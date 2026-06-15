@@ -590,6 +590,7 @@ class _ProfileHeader extends StatelessWidget {
         .where((v) => v.isNotEmpty)
         .join(', ');
     final avatarUrl = profile['avatar_url']?.toString();
+    final headerUrl = profile['header_url']?.toString();
     final joined = _joinedLabel(profile['created_at']);
     final born = _birthLabel(profile['birth_date']);
     final website = profile['website']?.toString().trim() ?? '';
@@ -603,38 +604,45 @@ class _ProfileHeader extends StatelessWidget {
           clipBehavior: Clip.none,
           children: [
             ClipRect(
-              child: Container(
+              child: SizedBox(
                 height: 120,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      cs.primary.withValues(alpha: 0.65),
-                      cs.primary.withValues(alpha: 0.22),
-                    ],
-                  ),
-                ),
-                child: Stack(
-                  children: [
-                    Positioned(
-                      right: -36,
-                      top: -44,
-                      child: _GhostCircle(
-                        size: 140,
-                        color: Colors.white.withValues(alpha: 0.10),
+                width: double.infinity,
+                child: headerUrl != null && headerUrl.isNotEmpty
+                    ? Image.network(headerUrl, fit: BoxFit.cover)
+                    : Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              cs.primary.withValues(alpha: 0.65),
+                              cs.primary.withValues(alpha: 0.22),
+                            ],
+                          ),
+                        ),
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              right: -36,
+                              top: -44,
+                              child: _GhostCircle(
+                                size: 140,
+                                color: Colors.white.withValues(alpha: 0.10),
+                              ),
+                            ),
+                            Positioned(
+                              right: 60,
+                              bottom: -50,
+                              child: _GhostCircle(
+                                size: 90,
+                                color: const Color(
+                                  0xFFF91880,
+                                ).withValues(alpha: 0.16),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    Positioned(
-                      right: 60,
-                      bottom: -50,
-                      child: _GhostCircle(
-                        size: 90,
-                        color: const Color(0xFFF91880).withValues(alpha: 0.16),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ),
             Positioned(
@@ -916,7 +924,11 @@ class _ProfileTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: backgroundColor,

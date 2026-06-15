@@ -54,7 +54,9 @@ class _PublicPollScreenState extends State<PublicPollScreen> {
         return;
       }
 
-      final poll = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+      final poll = raw is Map<String, dynamic>
+          ? raw
+          : Map<String, dynamic>.from(raw as Map);
       final pollId = poll['id']?.toString();
       if (pollId == null || pollId.isEmpty) {
         if (!mounted) return;
@@ -83,7 +85,8 @@ class _PublicPollScreenState extends State<PublicPollScreen> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Could not load this poll. Check your connection and try again.';
+        _error =
+            'Could not load this poll. Check your connection and try again.';
       });
     }
   }
@@ -117,7 +120,11 @@ class _PublicPollScreenState extends State<PublicPollScreen> {
                 : Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.search_off_rounded, size: 48, color: cs.onSurfaceVariant),
+                      Icon(
+                        Icons.search_off_rounded,
+                        size: 48,
+                        color: cs.onSurfaceVariant,
+                      ),
                       const SizedBox(height: 16),
                       Text(
                         _error ?? 'Could not load this poll.',

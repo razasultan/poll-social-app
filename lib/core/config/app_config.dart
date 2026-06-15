@@ -12,8 +12,9 @@ class AppConfig {
 
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
 
-  static const String supabaseAnonKey =
-      String.fromEnvironment('SUPABASE_ANON_KEY');
+  static const String supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+  );
 
   /// Base URL the deployed Flutter web build is hosted at, used to build
   /// shareable public poll links (`$publicShareBaseUrl/p/:shareSlug`).

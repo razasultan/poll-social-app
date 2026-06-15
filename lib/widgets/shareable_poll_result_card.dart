@@ -59,12 +59,20 @@ class ShareablePollResultCard extends StatelessWidget {
                     color: _accent,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.how_to_vote_rounded, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.how_to_vote_rounded,
+                    color: Colors.white,
+                    size: 16,
+                  ),
                 ),
                 const SizedBox(width: 8),
                 const Text(
                   'Poll Social',
-                  style: TextStyle(color: _ink, fontWeight: FontWeight.w800, fontSize: 15),
+                  style: TextStyle(
+                    color: _ink,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15,
+                  ),
                 ),
                 const Spacer(),
                 if (authorName != null && authorName!.trim().isNotEmpty)
@@ -82,7 +90,11 @@ class ShareablePollResultCard extends StatelessWidget {
             if (postText != null && postText!.trim().isNotEmpty) ...[
               Text(
                 postText!.trim(),
-                style: const TextStyle(color: _muted, fontSize: 14, height: 1.35),
+                style: const TextStyle(
+                  color: _muted,
+                  fontSize: 14,
+                  height: 1.35,
+                ),
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -90,7 +102,12 @@ class ShareablePollResultCard extends StatelessWidget {
             ],
             Text(
               question,
-              style: const TextStyle(color: _ink, fontWeight: FontWeight.w700, fontSize: 19, height: 1.3),
+              style: const TextStyle(
+                color: _ink,
+                fontWeight: FontWeight.w700,
+                fontSize: 19,
+                height: 1.3,
+              ),
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
             ),
@@ -102,7 +119,11 @@ class ShareablePollResultCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               '$totalVotes ${totalVotes == 1 ? 'vote' : 'votes'}',
-              style: const TextStyle(color: _muted, fontSize: 13, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: _muted,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             if (shareUrl != null && shareUrl!.trim().isNotEmpty) ...[
               const SizedBox(height: 14),
@@ -110,7 +131,11 @@ class ShareablePollResultCard extends StatelessWidget {
               const SizedBox(height: 14),
               Text(
                 shareUrl!.trim(),
-                style: const TextStyle(color: _accent, fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: _accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ],
@@ -138,7 +163,9 @@ class _ResultRow extends StatelessWidget {
                 entry.label,
                 style: TextStyle(
                   color: ShareablePollResultCard._ink,
-                  fontWeight: entry.selected ? FontWeight.w800 : FontWeight.w600,
+                  fontWeight: entry.selected
+                      ? FontWeight.w800
+                      : FontWeight.w600,
                   fontSize: 14,
                 ),
                 maxLines: 1,
@@ -163,13 +190,17 @@ class _ResultRow extends StatelessWidget {
             height: 8,
             child: Stack(
               children: [
-                const Positioned.fill(child: ColoredBox(color: ShareablePollResultCard._track)),
+                const Positioned.fill(
+                  child: ColoredBox(color: ShareablePollResultCard._track),
+                ),
                 FractionallySizedBox(
                   widthFactor: (pct / 100).clamp(0.0, 1.0),
                   child: ColoredBox(
                     color: entry.selected
                         ? ShareablePollResultCard._accent
-                        : ShareablePollResultCard._accent.withValues(alpha: 0.55),
+                        : ShareablePollResultCard._accent.withValues(
+                            alpha: 0.55,
+                          ),
                   ),
                 ),
               ],

@@ -5,8 +5,8 @@ import 'vote_service.dart';
 
 class FeedService {
   FeedService({SupabaseClient? supabase, VoteService? voteService})
-      : _supabase = supabase ?? Supabase.instance.client,
-        _voteService = voteService ?? VoteService();
+    : _supabase = supabase ?? Supabase.instance.client,
+      _voteService = voteService ?? VoteService();
 
   final SupabaseClient _supabase;
   final VoteService _voteService;
@@ -41,7 +41,9 @@ class FeedService {
   }) {
     var s = 0.0;
     final author = poll['user_id']?.toString();
-    if (author != null && author.isNotEmpty && followingUserIds.contains(author)) {
+    if (author != null &&
+        author.isNotEmpty &&
+        followingUserIds.contains(author)) {
       s += 10;
     }
     final id = poll['id']?.toString();
@@ -76,7 +78,10 @@ class FeedService {
 
   // --- Paginated public feeds -------------------------------------------------
 
-  Future<FeedPage> getLatestFeedPage({int limit = _defaultPageSize, int offset = 0}) async {
+  Future<FeedPage> getLatestFeedPage({
+    int limit = _defaultPageSize,
+    int offset = 0,
+  }) async {
     try {
       final want = limit + 1;
       final to = offset + want - 1;
@@ -97,7 +102,10 @@ class FeedService {
     }
   }
 
-  Future<FeedPage> getTrendingFeedPage({int limit = _defaultPageSize, int offset = 0}) async {
+  Future<FeedPage> getTrendingFeedPage({
+    int limit = _defaultPageSize,
+    int offset = 0,
+  }) async {
     try {
       final want = limit + 1;
       final to = offset + want - 1;
@@ -128,11 +136,19 @@ class FeedService {
 
       final exclude = Set<String>.from(excludePollIds);
 
-      final followingPolls =
-          await _fetchFollowingPollsForYou(followingIds, exclude, fetchCap: 48);
+      final followingPolls = await _fetchFollowingPollsForYou(
+        followingIds,
+        exclude,
+        fetchCap: 48,
+      );
       final excludeB = {...exclude, ..._idsOf(followingPolls)};
 
-      final regionalPolls = await _fetchRegionalPollsForYou(country, city, excludeB, fetchCap: 48);
+      final regionalPolls = await _fetchRegionalPollsForYou(
+        country,
+        city,
+        excludeB,
+        fetchCap: 48,
+      );
       final excludeC = {...excludeB, ..._idsOf(regionalPolls)};
 
       final trendingPolls = await _fetchTrendingMapsForYou(excludeC, take: 48);
@@ -145,7 +161,12 @@ class FeedService {
       void addPreservingOrder(List<Map<String, dynamic>> bucket) {
         for (final m in bucket) {
           final id = m['id']?.toString();
-          if (id == null || id.isEmpty || exclude.contains(id) || inPool.contains(id)) continue;
+          if (id == null ||
+              id.isEmpty ||
+              exclude.contains(id) ||
+              inPool.contains(id)) {
+            continue;
+          }
           inPool.add(id);
           pool.add(m);
         }
@@ -160,7 +181,10 @@ class FeedService {
         return const FeedPage(items: [], hasMore: false);
       }
 
-      final pollIds = pool.map((m) => m['id']?.toString()).whereType<String>().toList();
+      final pollIds = pool
+          .map((m) => m['id']?.toString())
+          .whereType<String>()
+          .toList();
       final voted = await _voteService.getPollIdsUserHasVoted(
         userId: currentUserId,
         pollIds: pollIds,
@@ -207,8 +231,10 @@ class FeedService {
   Future<List<dynamic>> getTrendingFeed({int? limit}) async {
     if (limit == null) {
       try {
-        final rows =
-            await _supabase.from('trending_polls').select().order('trending_score', ascending: false);
+        final rows = await _supabase
+            .from('trending_polls')
+            .select()
+            .order('trending_score', ascending: false);
         final hydrated = await _hydrateTrendingRows(rows);
         return List<dynamic>.from(hydrated);
       } catch (_) {
@@ -220,7 +246,11 @@ class FeedService {
   }
 
   Future<List<dynamic>> getForYouFeed(String currentUserId) async {
-    final page = await getForYouFeedPage(currentUserId, limit: 48, excludePollIds: {});
+    final page = await getForYouFeedPage(
+      currentUserId,
+      limit: 48,
+      excludePollIds: {},
+    );
     return page.items;
   }
 
@@ -238,12 +268,18 @@ class FeedService {
   List<dynamic> _normalizeDynamicList(List<dynamic> rows) {
     final list = <dynamic>[];
     for (final dynamic raw in rows) {
-      list.add(raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map));
+      list.add(
+        raw is Map<String, dynamic>
+            ? raw
+            : Map<String, dynamic>.from(raw as Map),
+      );
     }
     return list;
   }
 
-  Future<List<Map<String, dynamic>>> _hydrateTrendingRows(List<dynamic> rows) async {
+  Future<List<Map<String, dynamic>>> _hydrateTrendingRows(
+    List<dynamic> rows,
+  ) async {
     if (rows.isEmpty) return [];
 
     final pollIds = <String>[];
@@ -258,7 +294,11 @@ class FeedService {
     }
     if (pollIds.isEmpty) return [];
 
-    final polls = await _supabase.from('polls').select(_pollFeedSelect).eq('status', 'active').inFilter('id', pollIds);
+    final polls = await _supabase
+        .from('polls')
+        .select(_pollFeedSelect)
+        .eq('status', 'active')
+        .inFilter('id', pollIds);
 
     final byId = <String, Map<String, dynamic>>{};
     for (final dynamic p in polls) {
@@ -274,18 +314,17 @@ class FeedService {
       if (pollId == null) continue;
       final base = byId[pollId];
       if (base == null) continue;
-      merged.add({
-        ...base,
-        'trending_score': map['trending_score'],
-      });
+      merged.add({...base, 'trending_score': map['trending_score']});
     }
     return merged;
   }
 
   Future<List<String>> _getFollowingIds(String followerId) async {
     try {
-      final rows =
-          await _supabase.from('follows').select('following_id').eq('follower_id', followerId);
+      final rows = await _supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', followerId);
       final ids = <String>[];
       for (final dynamic row in rows) {
         final map = Map<String, dynamic>.from(row as Map);
@@ -300,8 +339,11 @@ class FeedService {
 
   Future<(String?, String?)> _getProfileCountryCity(String userId) async {
     try {
-      final row =
-          await _supabase.from('profiles').select('country, city').eq('id', userId).maybeSingle();
+      final row = await _supabase
+          .from('profiles')
+          .select('country, city')
+          .eq('id', userId)
+          .maybeSingle();
       if (row == null) return (null, null);
       final map = Map<String, dynamic>.from(row as Map);
       final country = _trimOrNull(map['country']?.toString());
@@ -388,7 +430,8 @@ class FeedService {
       }
     }
 
-    final sorted = byId.values.toList()..sort((a, b) => _pollCreatedAt(b).compareTo(_pollCreatedAt(a)));
+    final sorted = byId.values.toList()
+      ..sort((a, b) => _pollCreatedAt(b).compareTo(_pollCreatedAt(a)));
     return sorted.take(fetchCap).toList();
   }
 
@@ -403,10 +446,13 @@ class FeedService {
           .order('trending_score', ascending: false)
           .limit(take * 2);
       final merged = await _hydrateTrendingRows(rows);
-      return merged.where((m) {
-        final id = m['id']?.toString();
-        return id != null && id.isNotEmpty && !exclude.contains(id);
-      }).take(take).toList();
+      return merged
+          .where((m) {
+            final id = m['id']?.toString();
+            return id != null && id.isNotEmpty && !exclude.contains(id);
+          })
+          .take(take)
+          .toList();
     } catch (_) {
       return [];
     }
@@ -449,11 +495,15 @@ class FeedService {
     final raw = poll['created_at'];
     if (raw == null) return DateTime.fromMillisecondsSinceEpoch(0);
     if (raw is DateTime) return raw;
-    return DateTime.tryParse(raw.toString()) ?? DateTime.fromMillisecondsSinceEpoch(0);
+    return DateTime.tryParse(raw.toString()) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   /// Polls authored by [userId]. When [publicOnly] is true, only public polls are returned.
-  Future<List<dynamic>> getPollsForUser(String userId, {bool publicOnly = false}) async {
+  Future<List<dynamic>> getPollsForUser(
+    String userId, {
+    bool publicOnly = false,
+  }) async {
     final builder = _supabase
         .from('polls')
         .select(_pollFeedSelect)

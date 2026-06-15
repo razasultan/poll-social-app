@@ -41,8 +41,7 @@ class SocialService {
   Future<bool> getFollowStatus({
     required String followerId,
     required String followingId,
-  }) =>
-      isFollowing(followerId: followerId, followingId: followingId);
+  }) => isFollowing(followerId: followerId, followingId: followingId);
 
   /// How many accounts follow [userId]. Returns 0 if the query fails (e.g. RLS).
   Future<int> getFollowersCount(String userId) async {
@@ -60,8 +59,10 @@ class SocialService {
   /// How many accounts [userId] follows. Returns 0 if the query fails (e.g. RLS).
   Future<int> getFollowingCount(String userId) async {
     try {
-      final rows =
-          await _supabase.from('follows').select('following_id').eq('follower_id', userId);
+      final rows = await _supabase
+          .from('follows')
+          .select('following_id')
+          .eq('follower_id', userId);
       return rows.length;
     } catch (_) {
       return 0;
@@ -95,7 +96,9 @@ class SocialService {
       if (excludeIds.isNotEmpty) {
         query = query.not('id', 'in', '(${excludeIds.join(',')})');
       }
-      final rows = await query.order('created_at', ascending: false).limit(limit);
+      final rows = await query
+          .order('created_at', ascending: false)
+          .limit(limit);
       return rows.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (_) {
       return [];
@@ -212,7 +215,11 @@ class SocialService {
     required String commentId,
     required String userId,
   }) async {
-    await _supabase.from('comments').delete().eq('id', commentId).eq('user_id', userId);
+    await _supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId)
+        .eq('user_id', userId);
   }
 
   // TODO: reportComment via ModerationService when target_type for comments is defined.

@@ -43,7 +43,9 @@ class ModerationService {
   Future<List<dynamic>> getBlockedUsers(String userId) async {
     return await _supabase
         .from('blocks')
-        .select('blocked_id, profiles!blocks_blocked_id_fkey(username, avatar_url)')
+        .select(
+          'blocked_id, profiles!blocks_blocked_id_fkey(username, avatar_url)',
+        )
         .eq('blocker_id', userId);
   }
 }

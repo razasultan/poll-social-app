@@ -81,10 +81,7 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
         password: 'Test123456!',
       );
       final u = res.session?.user ?? res.user;
-      _logSuccess(
-        'Sign in test user',
-        {'id': u?.id, 'email': u?.email},
-      );
+      _logSuccess('Sign in test user', {'id': u?.id, 'email': u?.email});
     } catch (e, st) {
       _logError('Sign in test user', e, st);
     }
@@ -114,8 +111,7 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
       setState(() => _latestPoll = full);
       _logSuccess('Create test poll', full);
     } catch (e, st) {
-      if (e is PostgrestException &&
-          e.message.contains('poll_analytics')) {
+      if (e is PostgrestException && e.message.contains('poll_analytics')) {
         _appendLog(
           '[ERR] Create test poll\n'
           '$e\n'
@@ -155,14 +151,18 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
     if (userId == null) return;
     final poll = _latestPoll;
     if (poll == null) {
-      _appendLog('[SKIP] No latest poll cached. Fetch latest feed or create a poll first.');
+      _appendLog(
+        '[SKIP] No latest poll cached. Fetch latest feed or create a poll first.',
+      );
       return;
     }
     try {
       final pollId = poll['id']?.toString();
       final options = poll['poll_options'] as List<dynamic>?;
       if (pollId == null || options == null || options.isEmpty) {
-        _appendLog('[SKIP] Latest poll has no options. Fetch latest feed or create a poll.');
+        _appendLog(
+          '[SKIP] Latest poll has no options. Fetch latest feed or create a poll.',
+        );
         return;
       }
       final optionId = options.first['id']?.toString();
@@ -185,12 +185,13 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
         optionId: optionId,
         userId: userId,
       );
-      _logSuccess('Vote on latest poll option', {'poll_id': pollId, 'option_id': optionId});
+      _logSuccess('Vote on latest poll option', {
+        'poll_id': pollId,
+        'option_id': optionId,
+      });
     } catch (e, st) {
       if (e is PostgrestException && e.code == '23505') {
-        _appendLog(
-          '[SKIP] Duplicate vote (already voted on this poll).',
-        );
+        _appendLog('[SKIP] Duplicate vote (already voted on this poll).');
       } else {
         _logError('Vote on latest poll option', e, st);
       }
@@ -347,7 +348,10 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
         _appendLog('[SKIP] No other user found via search "test" to block.');
         return;
       }
-      await _moderationService.blockUser(blockerId: userId, blockedId: blockedId);
+      await _moderationService.blockUser(
+        blockerId: userId,
+        blockedId: blockedId,
+      );
       _logSuccess('Block test user', {'blocked_id': blockedId});
     } catch (e, st) {
       _logError('Block test user', e, st);
@@ -368,10 +372,7 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
   Widget _actionButton(String label, VoidCallback onTap) {
     return Padding(
       padding: const EdgeInsets.only(right: 8, bottom: 8),
-      child: ElevatedButton(
-        onPressed: onTap,
-        child: Text(label),
-      ),
+      child: ElevatedButton(onPressed: onTap, child: Text(label)),
     );
   }
 
@@ -393,10 +394,16 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
                   _actionButton('Create test poll', _createTestPoll),
                   _actionButton('Fetch latest feed', _fetchLatestFeed),
                   _actionButton('Fetch trending feed', _fetchTrendingFeed),
-                  _actionButton('Vote on latest poll option', _voteLatestOption),
+                  _actionButton(
+                    'Vote on latest poll option',
+                    _voteLatestOption,
+                  ),
                   _actionButton('Like latest poll', _likeLatestPoll),
                   _actionButton('Unlike latest poll', _unlikeLatestPoll),
-                  _actionButton('Add comment to latest poll', _addCommentLatest),
+                  _actionButton(
+                    'Add comment to latest poll',
+                    _addCommentLatest,
+                  ),
                   _actionButton('Fetch comments', _fetchComments),
                   _actionButton('Search polls', _searchPolls),
                   _actionButton('Search users', _searchUsers),
@@ -412,13 +419,17 @@ class _BackendTestScreenState extends State<BackendTestScreen> {
             flex: 3,
             child: Container(
               width: double.infinity,
-              color: Theme.of(context).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
+              color: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.35),
               padding: const EdgeInsets.all(8),
               alignment: Alignment.topLeft,
               child: SingleChildScrollView(
                 controller: _logScroll,
                 child: SelectableText(
-                  _logBuffer.isEmpty ? 'Logs appear here…' : _logBuffer.toString(),
+                  _logBuffer.isEmpty
+                      ? 'Logs appear here…'
+                      : _logBuffer.toString(),
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
               ),

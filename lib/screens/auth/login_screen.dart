@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/widgets/auth_card.dart';
 import '../../core/widgets/auth_layout.dart';
+import '../../core/widgets/oauth_buttons.dart';
 import '../../services/auth_service.dart';
 import 'signup_screen.dart';
 
@@ -23,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   late final AuthService _authService;
 
   bool _loading = false;
+  bool _obscurePassword = true;
 
   @override
   void initState() {
@@ -77,6 +80,42 @@ class _LoginScreenState extends State<LoginScreen> {
         if (e.code != null && e.code!.isNotEmpty) '(${e.code})',
       ];
       _snack(parts.isNotEmpty ? parts.join(' ') : 'Could not sign in.');
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Network error. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await _authService.signInWithGoogle();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _snack(
+        e.message.isNotEmpty ? e.message : 'Could not sign in with Google.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Network error. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await _authService.signInWithApple();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _snack(
+        e.message.isNotEmpty ? e.message : 'Could not sign in with Apple.',
+      );
     } catch (_) {
       if (!mounted) return;
       _snack('Network error. Try again.');
@@ -171,105 +210,111 @@ class _LoginScreenState extends State<LoginScreen> {
         child: AuthLayout(
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const SizedBox(height: 12),
-                Icon(Icons.how_to_vote_rounded, size: 56, color: cs.primary),
-                const SizedBox(height: 16),
-                Text(
-                  'Welcome back',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+            child: AuthCard(
+              title: 'Welcome back',
+              subtitle: 'Sign in to vote and share polls',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OAuthButtonsSection(
+                    loading: _loading,
+                    onGoogleTap: _signInWithGoogle,
+                    onAppleTap: _signInWithApple,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Sign in to vote and share polls',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
+                  TextFormField(
+                    controller: _emailCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Email',
+                      prefix: const Icon(Icons.mail_outline_rounded),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autocorrect: false,
+                    validator: _emailValidator,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 36),
-                TextFormField(
-                  controller: _emailCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Email',
-                    prefix: const Icon(Icons.mail_outline_rounded),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _passwordCtrl,
+                    decoration:
+                        _fieldDecoration(
+                          context,
+                          'Password',
+                          prefix: const Icon(Icons.lock_outline_rounded),
+                        ).copyWith(
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_outlined
+                                  : Icons.visibility_off_outlined,
+                            ),
+                            tooltip: _obscurePassword
+                                ? 'Show password'
+                                : 'Hide password',
+                            onPressed: () => setState(
+                              () => _obscurePassword = !_obscurePassword,
+                            ),
+                          ),
+                        ),
+                    obscureText: _obscurePassword,
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                    validator: _passwordValidator,
                   ),
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                  validator: _emailValidator,
-                ),
-                const SizedBox(height: 16),
-                TextFormField(
-                  controller: _passwordCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Password',
-                    prefix: const Icon(Icons.lock_outline_rounded),
-                  ),
-                  obscureText: true,
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _submit(),
-                  validator: _passwordValidator,
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _loading ? null : _openForgotPassword,
-                    child: const Text('Forgot password?'),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _loading ? null : _openForgotPassword,
+                      child: const Text('Forgot password?'),
                     ),
                   ),
-                  child: _loading
-                      ? SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.onPrimary,
-                          ),
-                        )
-                      : const Text('Sign in'),
-                ),
-                const SizedBox(height: 20),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'New here?',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
+                  const SizedBox(height: 8),
+                  FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    TextButton(
-                      onPressed: _loading
-                          ? null
-                          : () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const SignupScreen(),
-                                ),
-                              );
-                            },
-                      child: const Text('Create an account'),
-                    ),
-                  ],
-                ),
-              ],
+                    child: _loading
+                        ? SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: cs.onPrimary,
+                            ),
+                          )
+                        : const Text('Sign in'),
+                  ),
+                  const SizedBox(height: 20),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        'New here?',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: _loading
+                            ? null
+                            : () {
+                                Navigator.of(context).push(
+                                  MaterialPageRoute(
+                                    builder: (_) => const SignupScreen(),
+                                  ),
+                                );
+                              },
+                        child: const Text('Create an account'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

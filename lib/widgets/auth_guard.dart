@@ -72,13 +72,13 @@ class AuthGuard {
     if (!context.mounted || result == null) return;
 
     if (result == 'login') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
     } else if (result == 'signup') {
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const SignupScreen()),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const SignupScreen()));
     }
   }
 }

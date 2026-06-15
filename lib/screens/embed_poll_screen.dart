@@ -67,7 +67,9 @@ class _EmbedPollScreenState extends State<EmbedPollScreen> {
         });
         return;
       }
-      final poll = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+      final poll = raw is Map<String, dynamic>
+          ? raw
+          : Map<String, dynamic>.from(raw as Map);
       setState(() {
         _loading = false;
         _poll = poll;
@@ -110,11 +112,17 @@ class _EmbedPollScreenState extends State<EmbedPollScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.how_to_vote_rounded, size: 14, color: cs.onSurfaceVariant),
+                Icon(
+                  Icons.how_to_vote_rounded,
+                  size: 14,
+                  color: cs.onSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   'Powered by Poll Social',
-                  style: theme.textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
@@ -151,7 +159,9 @@ class _EmbedMessage extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ],
         ),

@@ -25,7 +25,10 @@ void main() {
   group('validatePassword', () {
     test('requires at least 6 characters', () {
       expect(validatePassword(''), 'Password must be at least 6 characters');
-      expect(validatePassword('abc12'), 'Password must be at least 6 characters');
+      expect(
+        validatePassword('abc12'),
+        'Password must be at least 6 characters',
+      );
       expect(validatePassword(null), 'Password must be at least 6 characters');
     });
 
@@ -41,7 +44,10 @@ void main() {
     });
 
     test('requires a match with the password', () {
-      expect(validateConfirmPassword('different', 'abc123'), 'Passwords do not match');
+      expect(
+        validateConfirmPassword('different', 'abc123'),
+        'Passwords do not match',
+      );
       expect(validateConfirmPassword('abc123', 'abc123'), isNull);
     });
   });

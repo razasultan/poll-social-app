@@ -109,7 +109,10 @@ class _PollResultChartState extends State<PollResultChart> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
-        final vote = await _voteService.getUserVote(pollId: _pollId, userId: user.id);
+        final vote = await _voteService.getUserVote(
+          pollId: _pollId,
+          userId: user.id,
+        );
         if (vote is Map && vote['option_id'] != null) {
           _selectedOptionId = vote['option_id'].toString();
         }
@@ -162,7 +165,9 @@ class _PollResultChartState extends State<PollResultChart> {
         padding: const EdgeInsets.only(top: 4, bottom: 12),
         child: Text(
           'Vote to see the full results breakdown.',
-          style: theme.textTheme.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
         ),
       );
     } else {
@@ -175,7 +180,11 @@ class _PollResultChartState extends State<PollResultChart> {
       );
       body = SizedBox(
         height: 240,
-        child: _PollBarChart(entries: entries, colorScheme: cs, textTheme: theme.textTheme),
+        child: _PollBarChart(
+          entries: entries,
+          colorScheme: cs,
+          textTheme: theme.textTheme,
+        ),
       );
     }
 
@@ -186,7 +195,9 @@ class _PollResultChartState extends State<PollResultChart> {
         children: [
           Text(
             'Results breakdown',
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
           const SizedBox(height: 8),
           body,
@@ -210,7 +221,10 @@ class _PollBarChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = colorScheme;
-    final labelStyle = textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant, fontSize: 11);
+    final labelStyle = textTheme.bodySmall?.copyWith(
+      color: cs.onSurfaceVariant,
+      fontSize: 11,
+    );
 
     return BarChart(
       BarChartData(
@@ -221,18 +235,26 @@ class _PollBarChart extends StatelessWidget {
           show: true,
           horizontalInterval: 25,
           drawVerticalLine: false,
-          getDrawingHorizontalLine: (_) => FlLine(color: cs.outlineVariant.withValues(alpha: 0.4), strokeWidth: 1),
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: cs.outlineVariant.withValues(alpha: 0.4),
+            strokeWidth: 1,
+          ),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 36,
               interval: 25,
-              getTitlesWidget: (value, meta) => Text('${value.toInt()}%', style: labelStyle),
+              getTitlesWidget: (value, meta) =>
+                  Text('${value.toInt()}%', style: labelStyle),
             ),
           ),
           bottomTitles: AxisTitles(
@@ -241,7 +263,9 @@ class _PollBarChart extends StatelessWidget {
               reservedSize: 40,
               getTitlesWidget: (value, meta) {
                 final i = value.toInt();
-                if (i < 0 || i >= entries.length) return const SizedBox.shrink();
+                if (i < 0 || i >= entries.length) {
+                  return const SizedBox.shrink();
+                }
                 return Padding(
                   padding: const EdgeInsets.only(top: 6),
                   child: Text(
@@ -262,7 +286,11 @@ class _PollBarChart extends StatelessWidget {
               final entry = entries[group.x.toInt()];
               return BarTooltipItem(
                 '${entry.label}\n${entry.percentage.toStringAsFixed(0)}% · ${entry.count} ${entry.count == 1 ? 'vote' : 'votes'}',
-                const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
               );
             },
           ),
@@ -276,7 +304,9 @@ class _PollBarChart extends StatelessWidget {
                   toY: entries[i].percentage,
                   width: 28,
                   borderRadius: BorderRadius.circular(6),
-                  color: entries[i].selected ? cs.primary : cs.primary.withValues(alpha: 0.35),
+                  color: entries[i].selected
+                      ? cs.primary
+                      : cs.primary.withValues(alpha: 0.35),
                   backDrawRodData: BackgroundBarChartRodData(
                     show: true,
                     toY: 100,

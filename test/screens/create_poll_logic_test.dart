@@ -20,10 +20,11 @@ void main() {
 
   group('parseHashtagInput', () {
     test('splits on whitespace and commas, strips leading #, lowercases', () {
-      expect(
-        parseHashtagInput('#Travel, food   #Music'),
-        ['travel', 'food', 'music'],
-      );
+      expect(parseHashtagInput('#Travel, food   #Music'), [
+        'travel',
+        'food',
+        'music',
+      ]);
     });
 
     test('dedupes within the input', () {
@@ -31,10 +32,9 @@ void main() {
     });
 
     test('skips tags already present in existing', () {
-      expect(
-        parseHashtagInput('#sports #music', existing: {'Sports'}),
-        ['music'],
-      );
+      expect(parseHashtagInput('#sports #music', existing: {'Sports'}), [
+        'music',
+      ]);
     });
 
     test('ignores empty tokens', () {
@@ -48,9 +48,18 @@ void main() {
     });
 
     test('adds the expected duration for relative presets', () {
-      expect(resolveExpiresAt(expiration1h, now: now), now.add(const Duration(hours: 1)));
-      expect(resolveExpiresAt(expiration24h, now: now), now.add(const Duration(days: 1)));
-      expect(resolveExpiresAt(expiration7d, now: now), now.add(const Duration(days: 7)));
+      expect(
+        resolveExpiresAt(expiration1h, now: now),
+        now.add(const Duration(hours: 1)),
+      );
+      expect(
+        resolveExpiresAt(expiration24h, now: now),
+        now.add(const Duration(days: 1)),
+      );
+      expect(
+        resolveExpiresAt(expiration7d, now: now),
+        now.add(const Duration(days: 7)),
+      );
     });
 
     test('returns the custom timestamp for "custom"', () {
@@ -84,7 +93,10 @@ void main() {
     });
 
     test('requires at least two non-empty options', () {
-      expect(draft(options: const ['Only one', '']), 'Add at least two answer choices.');
+      expect(
+        draft(options: const ['Only one', '']),
+        'Add at least two answer choices.',
+      );
     });
 
     test('rejects more than five options', () {
@@ -95,7 +107,10 @@ void main() {
     });
 
     test('rejects duplicate options (case-insensitive)', () {
-      expect(draft(options: const ['Yes', 'yes']), 'Each option must be unique.');
+      expect(
+        draft(options: const ['Yes', 'yes']),
+        'Each option must be unique.',
+      );
     });
 
     test('requires a custom date when the custom preset is chosen', () {
@@ -107,7 +122,10 @@ void main() {
 
     test('requires the custom date to be in the future', () {
       expect(
-        draft(preset: expirationCustom, custom: now.subtract(const Duration(hours: 1))),
+        draft(
+          preset: expirationCustom,
+          custom: now.subtract(const Duration(hours: 1)),
+        ),
         'Expiration must be in the future.',
       );
     });
@@ -115,7 +133,10 @@ void main() {
     test('accepts a valid draft', () {
       expect(draft(), isNull);
       expect(
-        draft(preset: expirationCustom, custom: now.add(const Duration(hours: 1))),
+        draft(
+          preset: expirationCustom,
+          custom: now.add(const Duration(hours: 1)),
+        ),
         isNull,
       );
     });

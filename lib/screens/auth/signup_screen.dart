@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/widgets/auth_card.dart';
 import '../../core/widgets/auth_layout.dart';
+import '../../core/widgets/oauth_buttons.dart';
 import '../../services/auth_service.dart';
 import '../../services/profile_service.dart';
 
@@ -146,6 +148,12 @@ class _SignupScreenState extends State<SignupScreen> {
       final res = await _authService.signUp(
         email: email,
         password: _passwordCtrl.text,
+        data: {
+          'username': username,
+          if (displayName.isNotEmpty) 'display_name': displayName,
+          if (country.isNotEmpty) 'country': country,
+          if (city.isNotEmpty) 'city': city,
+        },
       );
 
       final user = res.user;
@@ -159,22 +167,28 @@ class _SignupScreenState extends State<SignupScreen> {
         return;
       }
 
-      try {
-        await _profileService.createProfile(
-          id: user.id,
-          username: username,
-          displayName: displayName.isEmpty ? null : displayName,
-          country: country.isEmpty ? null : country,
-          city: city.isEmpty ? null : city,
-        );
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _loading = false);
-        final msg = e is PostgrestException && e.message.isNotEmpty
-            ? e.message
-            : 'Account created but profile setup failed. Try updating profile in Settings.';
-        _snack(msg);
-        return;
+      // When email confirmation is required, `session` is null and we have
+      // no `auth.uid()` yet, so RLS blocks this insert. That's expected —
+      // the profile is created from `user_metadata` once the user confirms
+      // and signs in (see ProfileService.ensureProfileExists).
+      if (session != null) {
+        try {
+          await _profileService.createProfile(
+            id: user.id,
+            username: username,
+            displayName: displayName.isEmpty ? null : displayName,
+            country: country.isEmpty ? null : country,
+            city: city.isEmpty ? null : city,
+          );
+        } catch (e) {
+          if (!mounted) return;
+          setState(() => _loading = false);
+          final msg = e is PostgrestException && e.message.isNotEmpty
+              ? e.message
+              : 'Account created but profile setup failed. Try updating profile in Settings.';
+          _snack(msg);
+          return;
+        }
       }
 
       if (!mounted) return;
@@ -199,10 +213,45 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
+  Future<void> _signInWithGoogle() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await _authService.signInWithGoogle();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _snack(
+        e.message.isNotEmpty ? e.message : 'Could not sign in with Google.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Network error. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _signInWithApple() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    try {
+      await _authService.signInWithApple();
+    } on AuthException catch (e) {
+      if (!mounted) return;
+      _snack(
+        e.message.isNotEmpty ? e.message : 'Could not sign in with Apple.',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Network error. Try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create account')),
@@ -210,124 +259,119 @@ class _SignupScreenState extends State<SignupScreen> {
         child: AuthLayout(
           child: Form(
             key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Join the community',
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
+            child: AuthCard(
+              title: 'Create your account',
+              subtitle: 'Choose a username and optional profile details.',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  OAuthButtonsSection(
+                    loading: _loading,
+                    onGoogleTap: _signInWithGoogle,
+                    onAppleTap: _signInWithApple,
                   ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose a username and optional profile details.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                TextFormField(
-                  controller: _emailCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Email',
-                    prefix: const Icon(Icons.mail_outline_rounded),
-                  ),
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  validator: _emailValidator,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _passwordCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Password',
-                    prefix: const Icon(Icons.lock_outline_rounded),
-                  ),
-                  obscureText: true,
-                  validator: _passwordValidator,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _confirmCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Confirm password',
-                    prefix: const Icon(Icons.lock_outline_rounded),
-                  ),
-                  obscureText: true,
-                  validator: _confirmValidator,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _usernameCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Username',
-                    prefix: const Icon(Icons.alternate_email_rounded),
-                  ),
-                  autocorrect: false,
-                  validator: _usernameValidator,
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _displayNameCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Display name (optional)',
-                    prefix: const Icon(Icons.badge_outlined),
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _countryCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'Country (optional)',
-                    prefix: const Icon(Icons.public_outlined),
-                  ),
-                  textInputAction: TextInputAction.next,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _cityCtrl,
-                  decoration: _fieldDecoration(
-                    context,
-                    'City (optional)',
-                    prefix: const Icon(Icons.location_city_outlined),
-                  ),
-                  textInputAction: TextInputAction.done,
-                  onFieldSubmitted: (_) => _submit(),
-                ),
-                const SizedBox(height: 28),
-                FilledButton(
-                  onPressed: _loading ? null : _submit,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                  TextFormField(
+                    controller: _emailCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Email',
+                      prefix: const Icon(Icons.mail_outline_rounded),
                     ),
+                    keyboardType: TextInputType.emailAddress,
+                    autocorrect: false,
+                    validator: _emailValidator,
+                    textInputAction: TextInputAction.next,
                   ),
-                  child: _loading
-                      ? SizedBox(
-                          height: 22,
-                          width: 22,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: cs.onPrimary,
-                          ),
-                        )
-                      : const Text('Sign up'),
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _passwordCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Password',
+                      prefix: const Icon(Icons.lock_outline_rounded),
+                    ),
+                    obscureText: true,
+                    validator: _passwordValidator,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _confirmCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Confirm password',
+                      prefix: const Icon(Icons.lock_outline_rounded),
+                    ),
+                    obscureText: true,
+                    validator: _confirmValidator,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _usernameCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Username',
+                      prefix: const Icon(Icons.alternate_email_rounded),
+                    ),
+                    autocorrect: false,
+                    validator: _usernameValidator,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _displayNameCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Display name (optional)',
+                      prefix: const Icon(Icons.badge_outlined),
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _countryCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'Country (optional)',
+                      prefix: const Icon(Icons.public_outlined),
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _cityCtrl,
+                    decoration: _fieldDecoration(
+                      context,
+                      'City (optional)',
+                      prefix: const Icon(Icons.location_city_outlined),
+                    ),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _submit(),
+                  ),
+                  const SizedBox(height: 28),
+                  FilledButton(
+                    onPressed: _loading ? null : _submit,
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: _loading
+                        ? SizedBox(
+                            height: 22,
+                            width: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: cs.onPrimary,
+                            ),
+                          )
+                        : const Text('Sign up'),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),

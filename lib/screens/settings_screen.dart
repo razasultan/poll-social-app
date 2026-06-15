@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/auth_service.dart';
@@ -655,6 +657,7 @@ class _EditProfileSheet extends StatefulWidget {
 
 class _EditProfileSheetState extends State<_EditProfileSheet> {
   final _formKey = GlobalKey<FormState>();
+  final ImagePicker _imagePicker = ImagePicker();
   late final TextEditingController _displayName;
   late final TextEditingController _bio;
   late final TextEditingController _country;
@@ -663,6 +666,13 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
   DateTime? _birthDate;
   bool _birthDateCleared = false;
   bool _saving = false;
+
+  String? _avatarUrl;
+  String? _headerUrl;
+  Uint8List? _avatarBytes;
+  Uint8List? _headerBytes;
+  String? _avatarExt;
+  String? _headerExt;
 
   @override
   void initState() {
@@ -676,6 +686,8 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     _city = TextEditingController(text: p['city']?.toString() ?? '');
     _website = TextEditingController(text: p['website']?.toString() ?? '');
     _birthDate = DateTime.tryParse(p['birth_date']?.toString() ?? '');
+    _avatarUrl = p['avatar_url']?.toString();
+    _headerUrl = p['header_url']?.toString();
   }
 
   @override
@@ -696,6 +708,58 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
       return 'Enter a valid URL';
     }
     return null;
+  }
+
+  String _extensionOf(String name) {
+    final dot = name.lastIndexOf('.');
+    if (dot == -1 || dot == name.length - 1) return 'jpg';
+    return name.substring(dot + 1).toLowerCase();
+  }
+
+  Future<void> _pickAvatar() async {
+    try {
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _avatarBytes = bytes;
+        _avatarExt = _extensionOf(file.name);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not pick image. Try again.')),
+      );
+    }
+  }
+
+  Future<void> _pickHeader() async {
+    try {
+      final file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1500,
+        maxHeight: 500,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _headerBytes = bytes;
+        _headerExt = _extensionOf(file.name);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not pick image. Try again.')),
+      );
+    }
   }
 
   Future<void> _pickBirthDate() async {
@@ -746,6 +810,21 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
     setState(() => _saving = true);
 
     try {
+      if (_avatarBytes != null) {
+        await widget.profileService.uploadAvatar(
+          userId: widget.userId,
+          bytes: _avatarBytes!,
+          fileExtension: _avatarExt ?? 'jpg',
+        );
+      }
+      if (_headerBytes != null) {
+        await widget.profileService.uploadHeader(
+          userId: widget.userId,
+          bytes: _headerBytes!,
+          fileExtension: _headerExt ?? 'jpg',
+        );
+      }
+
       var website = _website.text.trim();
       if (website.isNotEmpty && !website.contains('://')) {
         website = 'https://$website';
@@ -794,6 +873,17 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                 ),
               ),
               const SizedBox(height: 20),
+              _ProfileMediaEditor(
+                avatarUrl: _avatarUrl,
+                headerUrl: _headerUrl,
+                avatarBytes: _avatarBytes,
+                headerBytes: _headerBytes,
+                initials: (widget.initialProfile['username']?.toString() ?? '')
+                    .trim(),
+                onPickAvatar: _pickAvatar,
+                onPickHeader: _pickHeader,
+              ),
+              const SizedBox(height: 44),
               TextFormField(
                 controller: _displayName,
                 decoration: const InputDecoration(
@@ -894,6 +984,147 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     : const Text('Save'),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Cover banner + overlapping avatar with camera-icon edit buttons, used in
+/// the Edit Profile sheet to preview and pick new header/avatar images.
+class _ProfileMediaEditor extends StatelessWidget {
+  const _ProfileMediaEditor({
+    required this.avatarUrl,
+    required this.headerUrl,
+    required this.avatarBytes,
+    required this.headerBytes,
+    required this.initials,
+    required this.onPickAvatar,
+    required this.onPickHeader,
+  });
+
+  final String? avatarUrl;
+  final String? headerUrl;
+  final Uint8List? avatarBytes;
+  final Uint8List? headerBytes;
+  final String initials;
+  final VoidCallback onPickAvatar;
+  final VoidCallback onPickHeader;
+
+  static const double _avatarRadius = 36;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    Widget headerContent;
+    if (headerBytes != null) {
+      headerContent = Image.memory(headerBytes!, fit: BoxFit.cover);
+    } else if (headerUrl != null && headerUrl!.isNotEmpty) {
+      headerContent = Image.network(headerUrl!, fit: BoxFit.cover);
+    } else {
+      headerContent = DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              cs.primary.withValues(alpha: 0.65),
+              cs.primary.withValues(alpha: 0.22),
+            ],
+          ),
+        ),
+      );
+    }
+
+    ImageProvider? avatarImage;
+    if (avatarBytes != null) {
+      avatarImage = MemoryImage(avatarBytes!);
+    } else if (avatarUrl != null && avatarUrl!.isNotEmpty) {
+      avatarImage = NetworkImage(avatarUrl!);
+    }
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 120,
+            width: double.infinity,
+            child: headerContent,
+          ),
+        ),
+        Positioned(
+          right: 8,
+          top: 8,
+          child: _EditMediaButton(onTap: onPickHeader),
+        ),
+        Positioned(
+          left: 16,
+          bottom: -_avatarRadius,
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: cs.surface,
+              shape: BoxShape.circle,
+            ),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                CircleAvatar(
+                  radius: _avatarRadius,
+                  backgroundColor: cs.primaryContainer,
+                  backgroundImage: avatarImage,
+                  child: avatarImage == null
+                      ? Text(
+                          initials.isNotEmpty ? initials[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onPrimaryContainer,
+                          ),
+                        )
+                      : null,
+                ),
+                Positioned(
+                  right: -4,
+                  bottom: -4,
+                  child: _EditMediaButton(onTap: onPickAvatar, small: true),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Small circular camera-icon button overlaid on media previews.
+class _EditMediaButton extends StatelessWidget {
+  const _EditMediaButton({required this.onTap, this.small = false});
+
+  final VoidCallback onTap;
+  final bool small;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = small ? 28.0 : 32.0;
+    return Material(
+      color: Colors.black.withValues(alpha: 0.55),
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(
+            Icons.camera_alt_rounded,
+            color: Colors.white,
+            size: small ? 14 : 16,
           ),
         ),
       ),

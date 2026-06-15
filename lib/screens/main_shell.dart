@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/widgets/trending_rail.dart';
 import '../services/notification_service.dart';
+import '../services/profile_service.dart';
 import '../widgets/auth_guard.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
@@ -38,6 +39,7 @@ class _MainShellState extends State<MainShell> {
   final ValueNotifier<int> _profileReloadToken = ValueNotifier<int>(0);
 
   late final NotificationService _notificationService;
+  final ProfileService _profileService = ProfileService();
   int _shellUnreadCount = 0;
   RealtimeChannel? _shellNotificationChannel;
   StreamSubscription<AuthState>? _authSubscription;
@@ -57,12 +59,27 @@ class _MainShellState extends State<MainShell> {
     ) {
       final user = data.session?.user;
       _syncShellNotificationBadge(user);
+      if (user != null) _ensureProfileExists(user);
       final itemCount = user == null ? 4 : 5;
       if (_selectedIndex >= itemCount && mounted) {
         setState(() => _selectedIndex = 0);
       }
     });
-    _syncShellNotificationBadge(Supabase.instance.client.auth.currentUser);
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    _syncShellNotificationBadge(currentUser);
+    if (currentUser != null) _ensureProfileExists(currentUser);
+  }
+
+  /// Fallback profile creation for users whose `profiles` row wasn't created
+  /// at signup time (e.g. email confirmation deferred the session, or
+  /// sign-in happened via OAuth). Failures are non-fatal — the user can
+  /// still create their profile from Settings.
+  Future<void> _ensureProfileExists(User user) async {
+    try {
+      await _profileService.ensureProfileExists(user);
+    } catch (_) {
+      // Best-effort; profile can still be completed from Settings.
+    }
   }
 
   @override

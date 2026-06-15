@@ -8,10 +8,7 @@ import 'poll_card.dart';
 
 /// Cursor for the next page: API offset (Latest/Trending) and/or loaded IDs (For You exclusions).
 class PagedPollCursor {
-  const PagedPollCursor({
-    this.offset = 0,
-    this.loadedPollIds = const {},
-  });
+  const PagedPollCursor({this.offset = 0, this.loadedPollIds = const {}});
 
   final int offset;
   final Set<String> loadedPollIds;
@@ -46,7 +43,8 @@ class PagedPollFeed extends StatefulWidget {
   State<PagedPollFeed> createState() => _PagedPollFeedState();
 }
 
-class _PagedPollFeedState extends State<PagedPollFeed> with AutomaticKeepAliveClientMixin {
+class _PagedPollFeedState extends State<PagedPollFeed>
+    with AutomaticKeepAliveClientMixin {
   final ScrollController _scroll = ScrollController();
 
   List<dynamic> _items = [];
@@ -65,7 +63,9 @@ class _PagedPollFeedState extends State<PagedPollFeed> with AutomaticKeepAliveCl
     final ids = <String>{};
     for (final raw in _items) {
       if (raw is! Map) continue;
-      final m = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw);
+      final m = raw is Map<String, dynamic>
+          ? raw
+          : Map<String, dynamic>.from(raw);
       final id = m['id']?.toString();
       if (id != null && id.isNotEmpty) ids.add(id);
     }
@@ -143,16 +143,17 @@ class _PagedPollFeedState extends State<PagedPollFeed> with AutomaticKeepAliveCl
     if (!_hasMore || _loadingMore || _loading) return;
     setState(() => _loadingMore = true);
     try {
-      final page = await widget.fetch(PagedPollCursor(
-        offset: _items.length,
-        loadedPollIds: _collectIds(),
-      ));
+      final page = await widget.fetch(
+        PagedPollCursor(offset: _items.length, loadedPollIds: _collectIds()),
+      );
       if (!mounted) return;
       setState(() {
         final existing = _collectIds();
         final merged = <dynamic>[..._items];
         for (final dynamic raw in page.items) {
-          final m = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+          final m = raw is Map<String, dynamic>
+              ? raw
+              : Map<String, dynamic>.from(raw as Map);
           final id = m['id']?.toString();
           if (id == null || id.isEmpty || existing.contains(id)) continue;
           existing.add(id);
@@ -183,18 +184,24 @@ class _PagedPollFeedState extends State<PagedPollFeed> with AutomaticKeepAliveCl
   }
 
   void _flushSeen() {
-    if (!mounted || widget.onPollIdsBecameVisible == null || _items.isEmpty) return;
+    if (!mounted || widget.onPollIdsBecameVisible == null || _items.isEmpty) {
+      return;
+    }
     if (!_scroll.hasClients) return;
     final pos = _scroll.position;
     final n = _items.length;
     final first = (pos.pixels / _estimatedCardHeight).floor().clamp(0, n - 1);
     final lastExclusive =
-        ((pos.pixels + pos.viewportDimension) / _estimatedCardHeight).ceil().clamp(0, n);
+        ((pos.pixels + pos.viewportDimension) / _estimatedCardHeight)
+            .ceil()
+            .clamp(0, n);
     final ids = <String>{};
     for (var i = first; i < lastExclusive; i++) {
       final raw = _items[i];
       if (raw is! Map) continue;
-      final m = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw);
+      final m = raw is Map<String, dynamic>
+          ? raw
+          : Map<String, dynamic>.from(raw);
       final id = m['id']?.toString();
       if (id != null && id.isNotEmpty) ids.add(id);
     }
@@ -226,8 +233,8 @@ class _PagedPollFeedState extends State<PagedPollFeed> with AutomaticKeepAliveCl
                     widget.emptyMessage,
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ),
               ),
@@ -262,7 +269,9 @@ class _PagedPollFeedState extends State<PagedPollFeed> with AutomaticKeepAliveCl
           }
 
           final raw = _items[index];
-          final poll = raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw as Map);
+          final poll = raw is Map<String, dynamic>
+              ? raw
+              : Map<String, dynamic>.from(raw as Map);
           final showScore = widget.trendingScoreWhenPresent
               ? (poll['trending_score'] != null)
               : widget.isTrendingTab;
