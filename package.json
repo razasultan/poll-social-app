@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "@playwright/test": "^1.60.0",
+    "supabase": "^2.98.0"
+  },
+  "scripts": {
+    "test:e2e": "playwright test",
+    "format:check": "dart format --output=none --set-exit-if-changed lib test integration_test",
+    "format": "dart format lib test integration_test",
+    "lint": "flutter analyze",
+    "test:unit": "flutter test",
+    "build:web": "flutter build web --dart-define=APP_ENV=dev --dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co --dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF"
+  }
+}

@@ -177,3 +177,52 @@ Long-press the poll icon in the feed app bar title, or navigate to `Navigator.pu
 - `lib/widgets/poll_card.dart` — feed poll card
 - `lib/services/poll_service.dart` — `createPoll`, `getPollById`, …
 - `lib/services/auth_service.dart` — sign-in / current user helpers
+
+## CI/CD
+
+GitHub Actions workflow: `.github/workflows/ci.yml`.
+
+### On every push and pull request (any branch)
+
+| Job | What it runs | Local equivalent |
+|-----|--------------|------------------|
+| `analyze` | `dart format --set-exit-if-changed` + `flutter analyze` | `npm run format:check` and `npm run lint` |
+| `unit-tests` | `flutter test` (all 98 unit/widget tests) | `npm run test:unit` |
+| `build-web` | `flutter build web` with DEV dart-defines | `npm run build:web` |
+| `build-android` | `flutter build apk --debug` with DEV dart-defines | `flutter build apk --debug --dart-define=...` (see `scripts/run_dev.ps1` for the DEV defines) |
+
+Any failing job fails the pipeline. If `analyze` fails on formatting, run `npm run format` to fix it locally before pushing.
+
+### On push to `main` only (extended validation)
+
+In addition to the jobs above:
+
+| Job | What it runs | Local equivalent |
+|-----|--------------|------------------|
+| `e2e-web` | Builds the Flutter web app and runs the full Playwright suite (`e2e/`) headless against it, using the DEV Supabase backend and the seeded `gherkintester1` account | `npm run test:e2e` (or `npx playwright test`) |
+
+`e2e-web` uploads two artifacts on every run (pass or fail):
+- **`playwright-report`** — the HTML report (`playwright-report/`)
+- **`playwright-test-results`** — per-test traces, screenshots, and videos for failures (`test-results/`)
+
+### Debugging a failed CI run
+
+1. Open the failed workflow run in the **Actions** tab and expand the failing job's steps for the error output.
+2. For `e2e-web` failures, download the `playwright-report` artifact and open `index.html` locally, or download `playwright-test-results` for traces — open a trace with `npx playwright show-trace <trace.zip>`.
+3. Reproduce locally with the "Local equivalent" command from the tables above. The Playwright config (`playwright.config.ts`) auto-starts the Flutter web server (`flutter run -d web-server --web-port=8765`) against DEV Supabase, so `npx playwright test` works standalone.
+
+### Required configuration
+
+The DEV Supabase URL and anon (publishable) key are stored as **repository variables** (Settings → Secrets and variables → Actions → Variables), not secrets — they're publishable keys already used in `Makefile` / `scripts/run_dev.ps1` / `playwright.config.ts`:
+
+- `SUPABASE_URL_DEV` = `https://uwomsxkvjqrvhdpnbkit.supabase.co`
+- `SUPABASE_ANON_KEY_DEV` = `sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF`
+
+No production credentials are used in CI.
+
+### Not yet covered (future work)
+
+- iOS build validation (requires a macOS runner; not yet added)
+- Native Android/iOS integration tests on emulators/simulators
+- `integration_test/app_test.dart` is not run in CI: `-d chrome` is unsupported by the Flutter web target on this Flutter version ("Web devices are not supported for integration tests yet"). Running it would need either `flutter drive` with a web `test_driver` harness, or a Linux-desktop runner with GTK deps for `-d linux`.
+- Release/deployment pipeline (store builds, web hosting deploy) — tracked as a future Notion task

@@ -48,10 +48,8 @@ app.*.map.json
 # Claude Code local settings
 /.claude/
 
-# Node tooling (e.g. Supabase CLI via npm)
+# Node tooling (e.g. Supabase CLI via npm, Playwright e2e)
 /node_modules/
-/package.json
-/package-lock.json
 
 # Playwright e2e output
 /playwright-report/
