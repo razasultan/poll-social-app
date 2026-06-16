@@ -108,6 +108,12 @@ jobs:
           node-version: '20'
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - name: Build Flutter web for E2E
+        run: |
+          flutter build web \
+            --dart-define=APP_ENV=dev \
+            --dart-define=SUPABASE_URL=${{ env.SUPABASE_URL_DEV }} \
+            --dart-define=SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY_DEV }}
       - run: npx playwright test
       - name: Upload Playwright report
         if: always()
