@@ -34,7 +34,7 @@ export default defineConfig({
   // Local: run `flutter build web --dart-define=APP_ENV=dev ...` once, then
   //        keep the server alive across test runs with reuseExistingServer.
   webServer: {
-    command: 'npx serve build/web --listen 8765 --no-clipboard',
+    command: 'serve build/web --listen 8765 --no-clipboard',
     url: 'http://127.0.0.1:8765',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,

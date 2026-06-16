@@ -1,6 +1,7 @@
 {
   "devDependencies": {
     "@playwright/test": "^1.60.0",
+    "serve": "^14.2.6",
     "supabase": "^2.98.0"
   },
   "scripts": {
