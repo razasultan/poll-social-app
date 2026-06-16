@@ -16,9 +16,14 @@ export async function login(page: Page, email = TEST_EMAIL, password = TEST_PASS
   await pwd.click();
   await pwd.pressSequentially(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  // Wait for the LoginScreen to pop (confirms auth succeeded before the caller
-  // tries to navigate away with goToProfileTab).
+  // Wait for the LoginScreen to pop (confirms auth succeeded).
   await expect(page.getByText('Welcome back')).toBeHidden({ timeout: 15_000 });
+  // Wait for the shell to finish re-rendering with the auth nav (5 tabs).
+  // Without this the BottomNavBar may still show 4 (guest) tabs and a
+  // subsequent click on /Profile\s+Tab \d of \d/ lands on the wrong item.
+  await expect(
+    page.getByRole('button', { name: /Notifications\s+Tab \d of \d/ }),
+  ).toBeVisible({ timeout: 10_000 });
 }
 
 /** Navigates to the Profile tab via the bottom/side nav. */
@@ -42,6 +47,9 @@ export async function loginAndGoToProfile(page: Page) {
   } else {
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
   }
+  // Ensure profile data has fully loaded before returning so each test in a
+  // beforeEach block starts with a completely rendered profile, not a spinner.
+  await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
 }
 
 /** Opens the "Edit profile" bottom sheet from the Profile tab's Settings page. */

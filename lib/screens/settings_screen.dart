@@ -940,29 +940,32 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                 onFieldSubmitted: (_) => _save(),
               ),
               const SizedBox(height: 16),
-              InkWell(
-                borderRadius: BorderRadius.circular(4),
-                onTap: _pickBirthDate,
-                child: InputDecorator(
-                  decoration: InputDecoration(
-                    labelText: 'Date of birth',
-                    border: const OutlineInputBorder(),
-                    prefixIcon: const Icon(Icons.cake_outlined),
-                    suffixIcon: _birthDate == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'Clear',
-                            icon: const Icon(Icons.close_rounded),
-                            onPressed: _clearBirthDate,
-                          ),
-                  ),
-                  child: Text(
-                    _birthDate == null
-                        ? 'Not set'
-                        : _formatBirthDate(_birthDate!),
-                    style: _birthDate == null
-                        ? TextStyle(color: cs.onSurfaceVariant)
-                        : null,
+              Semantics(
+                button: true,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(4),
+                  onTap: _pickBirthDate,
+                  child: InputDecorator(
+                    decoration: InputDecoration(
+                      labelText: 'Date of birth',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.cake_outlined),
+                      suffixIcon: _birthDate == null
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear',
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: _clearBirthDate,
+                            ),
+                    ),
+                    child: Text(
+                      _birthDate == null
+                          ? 'Not set'
+                          : _formatBirthDate(_birthDate!),
+                      style: _birthDate == null
+                          ? TextStyle(color: cs.onSurfaceVariant)
+                          : null,
+                    ),
                   ),
                 ),
               ),
