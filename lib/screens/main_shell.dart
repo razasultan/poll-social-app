@@ -154,6 +154,10 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+  /// Nav index of the Profile destination for an authenticated user (5 items:
+  /// Home=0, Search=1, Create=2, Notifications=3, Profile=4).
+  static const int _profileNavIndex = 4;
+
   void _onBottomNavTap(int index) {
     if (index == MainShell.createNavIndex) {
       unawaited(_openCreate());
@@ -164,6 +168,11 @@ class _MainShellState extends State<MainShell> {
     final u = Supabase.instance.client.auth.currentUser;
     if (index == 3 && u != null) {
       unawaited(_refreshShellUnreadBadge(u.id));
+    }
+    // Reload profile data whenever the user navigates to the Profile tab so
+    // newly published polls appear without requiring a manual pull-to-refresh.
+    if (u != null && index == _profileNavIndex) {
+      _profileReloadToken.value++;
     }
   }
 

@@ -103,6 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   int _followingCount = 0;
   bool _isFollowing = false;
   bool _followBusy = false;
+  int _loadGeneration = 0;
 
   String? get _currentUserId => Supabase.instance.client.auth.currentUser?.id;
 
@@ -149,6 +150,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       asLikedPollList(raw);
 
   Future<void> _load() async {
+    final gen = ++_loadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -156,12 +158,15 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     try {
       final rawProfile = await _profileService.getProfile(widget.userId);
+      if (!mounted || gen != _loadGeneration) return;
+
       final me = _currentUserId;
       final publicOnly = me == null || me != widget.userId;
       final rawPolls = await _feedService.getPollsForUser(
         widget.userId,
         publicOnly: publicOnly,
       );
+      if (!mounted || gen != _loadGeneration) return;
 
       var likedPolls = <Map<String, dynamic>>[];
       if (_isOwnProfile) {
@@ -174,6 +179,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           likedPolls = [];
         }
       }
+      if (!mounted || gen != _loadGeneration) return;
 
       var followers = 0;
       var following = 0;
@@ -186,6 +192,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         followers = 0;
         following = 0;
       }
+      if (!mounted || gen != _loadGeneration) return;
 
       if (me != null && me != widget.userId) {
         try {
@@ -198,7 +205,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         }
       }
 
-      if (!mounted) return;
+      if (!mounted || gen != _loadGeneration) return;
       setState(() {
         _profile = _asProfileMap(rawProfile);
         _polls = _asPollList(rawPolls);
@@ -209,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _loadGeneration) return;
       setState(() {
         _loading = false;
         _error = _errorMessage(e);
