@@ -307,25 +307,31 @@ class _MainShellState extends State<MainShell> {
     final user = Supabase.instance.client.auth.currentUser;
     final isGuest = user == null;
 
-    final stackChildren = <Widget>[
-      FeedScreen(feedReloadToken: _feedReloadToken),
-      const SearchScreen(),
-      if (!isGuest) const NotificationsScreen(),
-      _buildProfileTab(user),
-    ];
-
     final entries = _navEntries(context, isGuest);
     final selectedIndex = _selectedIndex < entries.length ? _selectedIndex : 0;
 
+    // The route builder must NOT capture stackChildren from the local build()
+    // scope. That list would become stale after a sign-in/out event because
+    // Flutter reuses the existing MaterialPageRoute and never re-calls
+    // onGenerateRoute for the initial route. Reading auth state fresh inside
+    // the builder ensures the IndexedStack children are always current.
     final body = Navigator(
       key: _shellNavigatorKey,
       onGenerateRoute: (settings) => MaterialPageRoute<void>(
         settings: settings,
-        builder: (context) => IndexedStack(
-          index: _stackIndex,
-          sizing: StackFit.expand,
-          children: stackChildren,
-        ),
+        builder: (_) {
+          final u = Supabase.instance.client.auth.currentUser;
+          return IndexedStack(
+            index: _stackIndex,
+            sizing: StackFit.expand,
+            children: [
+              FeedScreen(feedReloadToken: _feedReloadToken),
+              const SearchScreen(),
+              if (u != null) const NotificationsScreen(),
+              _buildProfileTab(u),
+            ],
+          );
+        },
       ),
     );
 
