@@ -9,8 +9,16 @@ export const TEST_USERNAME = 'gherkintester1';
 /** Logs in via the email/password form on the auth screen. */
 export async function login(page: Page, email = TEST_EMAIL, password = TEST_PASSWORD) {
   await page.getByRole('textbox', { name: 'Email' }).fill(email);
-  await page.getByRole('textbox', { name: 'Password' }).fill(password);
+  // Flutter's obscureText fields use <input type="password"> which ignores
+  // fill() (value= assignment). pressSequentially dispatches real key events
+  // that Flutter's input pipeline picks up correctly.
+  const pwd = page.getByRole('textbox', { name: 'Password' });
+  await pwd.click();
+  await pwd.pressSequentially(password);
   await page.getByRole('button', { name: 'Sign in' }).click();
+  // Wait for the LoginScreen to pop (confirms auth succeeded before the caller
+  // tries to navigate away with goToProfileTab).
+  await expect(page.getByText('Welcome back')).toBeHidden({ timeout: 15_000 });
 }
 
 /** Navigates to the Profile tab via the bottom/side nav. */
