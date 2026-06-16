@@ -28,14 +28,24 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  webServer: {
-    command:
-      'flutter run -d web-server --web-port=8765 --web-hostname=127.0.0.1 ' +
-      '--dart-define=APP_ENV=dev ' +
-      '--dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co ' +
-      '--dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF',
-    url: 'http://127.0.0.1:8765',
-    reuseExistingServer: !process.env.CI,
-    timeout: 180_000,
-  },
+  webServer: process.env.CI
+    ? {
+        // CI: compile fresh and serve via flutter run
+        command:
+          'flutter run -d web-server --web-port=8765 --web-hostname=127.0.0.1 ' +
+          '--dart-define=APP_ENV=dev ' +
+          '--dart-define=SUPABASE_URL=https://uwomsxkvjqrvhdpnbkit.supabase.co ' +
+          '--dart-define=SUPABASE_ANON_KEY=sb_publishable_LgwGHGciORtyBWVRajywqA_JYzCokcF',
+        url: 'http://127.0.0.1:8765',
+        reuseExistingServer: false,
+        timeout: 300_000,
+      }
+    : {
+        // Local dev: serve the pre-built release from build/web (fast, no recompile).
+        // Run `flutter build web --dart-define=APP_ENV=dev ...` before testing.
+        command: 'npx serve build/web --listen 8765 --no-clipboard',
+        url: 'http://127.0.0.1:8765',
+        reuseExistingServer: true,
+        timeout: 30_000,
+      },
 });

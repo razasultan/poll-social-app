@@ -59,11 +59,11 @@ class _FeedScreenState extends State<FeedScreen>
       final isGuestNow = user == null;
       if (isGuestNow != _isGuest) {
         final oldController = _tabController;
+        oldController.dispose();
         setState(() {
           _isGuest = isGuestNow;
           _tabController = TabController(length: _tabCount, vsync: this);
         });
-        oldController.dispose();
       }
       widget.feedReloadToken?.value++;
     });

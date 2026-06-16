@@ -3,16 +3,16 @@ import { test, expect } from '@playwright/test';
 /** Navigates a guest from the home screen to the login screen. */
 async function goToLogin(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.getByRole('button', { name: /Profile Tab \d of \d/ }).click();
+  await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
   await page.getByRole('button', { name: 'Login' }).click();
   await expect(page.getByText('Welcome back')).toBeVisible();
 }
 
 test.describe('Login screen redesign', () => {
   // Below the 700px NavigationRail breakpoint (lib/screens/main_shell.dart),
-  // so the bottom nav bar is used. Its destinations expose accessible
-  // "<Label> Tab X of Y" names; the wide NavigationRail does not currently
-  // expose any accessible name for its destinations.
+  // so the bottom nav bar is used. Its destinations expose accessible names
+  // like "Profile\nTab 4 of 4" — Flutter's MergeSemantics concatenates the
+  // item's text label with the position Semantics using a newline separator.
   test.use({ viewport: { width: 600, height: 900 } });
 
   test('LOGIN-01: shows the welcome header, OAuth buttons, and form fields', async ({ page }) => {

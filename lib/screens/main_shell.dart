@@ -333,11 +333,23 @@ class _MainShellState extends State<MainShell> {
                   labelType: NavigationRailLabelType.all,
                   backgroundColor: cs.surface,
                   destinations: [
-                    for (final entry in entries)
+                    for (int i = 0; i < entries.length; i++)
                       NavigationRailDestination(
-                        icon: entry.icon,
-                        selectedIcon: entry.activeIcon,
-                        label: Text(entry.label),
+                        icon: Semantics(
+                          button: true,
+                          label:
+                              '${entries[i].label} Tab ${i + 1} of ${entries.length}',
+                          onTap: () => _onBottomNavTap(i),
+                          child: entries[i].icon,
+                        ),
+                        selectedIcon: Semantics(
+                          button: true,
+                          label:
+                              '${entries[i].label} Tab ${i + 1} of ${entries.length}',
+                          onTap: () => _onBottomNavTap(i),
+                          child: entries[i].activeIcon,
+                        ),
+                        label: Text(entries[i].label),
                       ),
                   ],
                 ),
@@ -359,11 +371,21 @@ class _MainShellState extends State<MainShell> {
             currentIndex: selectedIndex,
             onTap: _onBottomNavTap,
             items: [
-              for (final entry in entries)
+              for (int i = 0; i < entries.length; i++)
                 BottomNavigationBarItem(
-                  icon: entry.icon,
-                  activeIcon: entry.activeIcon,
-                  label: entry.label,
+                  icon: Semantics(
+                    button: true,
+                    label: 'Tab ${i + 1} of ${entries.length}',
+                    onTap: () => _onBottomNavTap(i),
+                    child: entries[i].icon,
+                  ),
+                  activeIcon: Semantics(
+                    button: true,
+                    label: 'Tab ${i + 1} of ${entries.length}',
+                    onTap: () => _onBottomNavTap(i),
+                    child: entries[i].activeIcon,
+                  ),
+                  label: entries[i].label,
                 ),
             ],
           ),

@@ -15,7 +15,7 @@ export async function login(page: Page, email = TEST_EMAIL, password = TEST_PASS
 
 /** Navigates to the Profile tab via the bottom/side nav. */
 export async function goToProfileTab(page: Page) {
-  await page.getByRole('button', { name: /Profile Tab \d of \d/ }).click();
+  await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
   await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
 }
 
@@ -23,7 +23,7 @@ export async function goToProfileTab(page: Page) {
 export async function loginAndGoToProfile(page: Page) {
   await page.goto('/');
 
-  const profileTab = page.getByRole('button', { name: /Profile Tab \d of \d/ });
+  const profileTab = page.getByRole('button', { name: /Profile\s+Tab \d of \d/ });
   await profileTab.click();
 
   const loginButton = page.getByRole('button', { name: 'Login' });
