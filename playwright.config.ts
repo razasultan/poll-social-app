@@ -21,6 +21,7 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:8765',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    actionTimeout: 15_000,
   },
   projects: [
     {

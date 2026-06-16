@@ -7,6 +7,13 @@ import {
   TEST_USERNAME,
 } from './fixtures';
 
+// Force narrow viewport so the BottomNavigationBar is rendered (not the
+// NavigationRail). Flutter's NavigationRailDestination wraps its icon in
+// ExcludeSemantics internally, so destinations never appear as ARIA buttons
+// and getByRole('button', { name: /Profile/ }) times out. At ≤699px the
+// BottomNavigationBar is used and its items are correctly exposed as buttons.
+test.use({ viewport: { width: 600, height: 900 } });
+
 test.describe('Profile page — guest', () => {
   test('PROF-01: guest is shown a login prompt instead of a profile', async ({ page }) => {
     await page.goto('/');
@@ -21,7 +28,7 @@ test.describe('Profile page — guest', () => {
 
   test('PROF-02: guest can sign in from the Profile tab and lands on their profile', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: /Profile Tab \d of \d/ }).click();
+    await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
     await page.getByRole('button', { name: 'Login' }).click();
 
     await login(page);
