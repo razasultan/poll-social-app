@@ -54,3 +54,4 @@ app.*.map.json
 # Playwright e2e output
 /playwright-report/
 /test-results/
+/playwright/.auth/

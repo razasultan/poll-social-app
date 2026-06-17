@@ -39,6 +39,11 @@ test.describe('Profile page — guest', () => {
 });
 
 test.describe('Profile page — authenticated', () => {
+  // Restore the Supabase session saved by auth.setup.ts so Flutter boots in
+  // authenticated state — avoids repeated signInWithPassword calls that hit
+  // Supabase's free-tier rate limit (~5 sign-ins/min per email).
+  test.use({ storageState: 'playwright/.auth/user.json' });
+
   test.beforeEach(async ({ page }) => {
     await loginAndGoToProfile(page);
   });
@@ -94,7 +99,7 @@ test.describe('Profile page — authenticated', () => {
     await website.fill('not a url');
     await page.getByRole('button', { name: 'Save' }).click();
 
-    await expect(page.getByText('Enter a valid URL')).toBeVisible();
+    await expect(page.getByText('Enter a valid URL').first()).toBeVisible();
 
     // Restore field and dismiss without saving so we don't leave bad state.
     await website.fill('');
@@ -103,6 +108,7 @@ test.describe('Profile page — authenticated', () => {
 });
 
 test.describe('Profile page — edit website & date of birth', () => {
+  test.use({ storageState: 'playwright/.auth/user.json' });
   test.describe.configure({ mode: 'serial' });
 
   test.beforeEach(async ({ page }) => {
@@ -120,7 +126,7 @@ test.describe('Profile page — edit website & date of birth', () => {
     await page.getByRole('button', { name: 'OK' }).click();
 
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Profile updated')).toBeVisible();
+    await expect(page.getByText('Profile updated').first()).toBeVisible();
 
     const websiteLink = page.getByRole('button', { name: 'pollsocial.app' });
     await expect(websiteLink).toBeVisible();
@@ -149,7 +155,7 @@ test.describe('Profile page — edit website & date of birth', () => {
     await expect(page.getByRole('button', { name: /Date of birth/ })).toContainText('Born');
     await page.getByRole('button', { name: 'Clear' }).click();
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Profile updated')).toBeVisible();
+    await expect(page.getByText('Profile updated').first()).toBeVisible();
 
     await expect(page.getByText(/^Born /)).toHaveCount(0);
   });
@@ -159,7 +165,7 @@ test.describe('Profile page — edit website & date of birth', () => {
 
     await page.getByRole('textbox', { name: 'Website' }).fill('');
     await page.getByRole('button', { name: 'Save' }).click();
-    await expect(page.getByText('Profile updated')).toBeVisible();
+    await expect(page.getByText('Profile updated').first()).toBeVisible();
 
     await expect(page.getByRole('button', { name: 'pollsocial.app' })).toHaveCount(0);
   });

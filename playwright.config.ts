@@ -24,9 +24,17 @@ export default defineConfig({
     actionTimeout: 15_000,
   },
   projects: [
+    // Signs in once and writes playwright/.auth/user.json so authenticated
+    // tests can restore the Supabase session via storageState without making
+    // repeated signInWithPassword calls (which hit Supabase's rate limit).
+    {
+      name: 'setup',
+      testMatch: /.*\.setup\.ts/,
+    },
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
     },
   ],
   // Both CI and local dev serve the pre-built output with npx serve.
