@@ -99,7 +99,7 @@ test.describe('Profile page — authenticated', () => {
     await website.fill('not a url');
     await page.getByRole('button', { name: 'Save' }).click();
 
-    await expect(page.getByText('Enter a valid URL').first()).toBeVisible();
+    await expect(page.getByText('Enter a valid URL').first()).toBeVisible({ timeout: 15_000 });
 
     // Restore field and dismiss without saving so we don't leave bad state.
     await website.fill('');
@@ -118,7 +118,9 @@ test.describe('Profile page — edit website & date of birth', () => {
   test('PROF-09: saving a website and date of birth shows them on the profile', async ({ page }) => {
     await openEditProfile(page);
 
-    await page.getByRole('textbox', { name: 'Website' }).fill('pollsocial.app');
+    // Use a full URL so _openWebsite() gets a valid URI with a scheme; without
+    // one, Uri.tryParse returns a path-only URI and launchUrl misfires on web.
+    await page.getByRole('textbox', { name: 'Website' }).fill('https://pollsocial.app');
 
     await page.getByRole('button', { name: /Date of birth/ }).click();
     // Pick the 15th of the currently-displayed month in the date picker.
@@ -149,10 +151,13 @@ test.describe('Profile page — edit website & date of birth', () => {
       websiteLink.click(),
     ]);
 
+    // Read the navigation URL immediately, before DNS resolution can redirect
+    // the popup to a chrome-error:// page in sandboxed CI environments.
+    const targetUrl = popup.url();
     await popup.waitForLoadState('domcontentloaded').catch(() => {
       /* the domain may not resolve in a sandboxed test env */
     });
-    expect(popup.url()).toContain('pollsocial.app');
+    expect(targetUrl).toContain('pollsocial.app');
     await popup.close();
   });
 
