@@ -128,6 +128,13 @@ test.describe('Profile page — edit website & date of birth', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile updated').first()).toBeVisible();
 
+    // openEditProfile navigates into Settings; after the sheet closes we're
+    // still on Settings. Press Back to return to Profile, then tap the Profile
+    // tab to bump _profileReloadToken so the screen re-fetches from Supabase
+    // and renders the newly saved website and date-of-birth chips.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
+
     const websiteLink = page.getByRole('button', { name: 'pollsocial.app' });
     await expect(websiteLink).toBeVisible();
     await expect(page.getByText(/^Born .+ 15, \d{4}$/)).toBeVisible();
@@ -157,6 +164,11 @@ test.describe('Profile page — edit website & date of birth', () => {
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile updated').first()).toBeVisible();
 
+    // Return to Profile screen and reload so the chip change is visible.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
+    await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
+
     await expect(page.getByText(/^Born /)).toHaveCount(0);
   });
 
@@ -166,6 +178,11 @@ test.describe('Profile page — edit website & date of birth', () => {
     await page.getByRole('textbox', { name: 'Website' }).fill('');
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile updated').first()).toBeVisible();
+
+    // Return to Profile screen and reload so the chip change is visible.
+    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
+    await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
 
     await expect(page.getByRole('button', { name: 'pollsocial.app' })).toHaveCount(0);
   });
