@@ -262,36 +262,12 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     final commentId = comment['id']?.toString();
     if (user == null || commentId == null || commentId.isEmpty) return;
 
-    final ctrl = TextEditingController(
-      text: comment['comment_text']?.toString() ?? '',
-    );
     final saved = await showDialog<String>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Edit comment'),
-          content: TextField(
-            controller: ctrl,
-            autofocus: true,
-            minLines: 2,
-            maxLines: 6,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => _EditCommentDialog(
+        initialText: comment['comment_text']?.toString() ?? '',
+      ),
     );
-    ctrl.dispose();
 
     if (!mounted || saved == null) return;
     if (saved.isEmpty) {
@@ -571,6 +547,63 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                 ],
               ),
             ),
+    );
+  }
+}
+
+/// Edit-comment dialog. Owns its [TextEditingController] via normal State
+/// lifecycle (created in [initState], disposed in [dispose]) rather than a
+/// controller created by the caller around `showDialog` — disposing such a
+/// controller synchronously the instant the dialog's future resolves trips
+/// Flutter's `assert(_dependents.isEmpty)` in
+/// `InheritedElement.debugDeactivated`, since the autofocus'd field's
+/// dependents are still mid-teardown at that point.
+class _EditCommentDialog extends StatefulWidget {
+  const _EditCommentDialog({required this.initialText});
+
+  final String initialText;
+
+  @override
+  State<_EditCommentDialog> createState() => _EditCommentDialogState();
+}
+
+class _EditCommentDialogState extends State<_EditCommentDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.initialText);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Edit comment'),
+      content: TextField(
+        controller: _ctrl,
+        autofocus: true,
+        minLines: 2,
+        maxLines: 6,
+        textCapitalization: TextCapitalization.sentences,
+        decoration: const InputDecoration(border: OutlineInputBorder()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, _ctrl.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
