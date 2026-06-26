@@ -95,8 +95,15 @@ test.describe('Profile page — authenticated', () => {
   test('PROF-08: Website field rejects an invalid URL', async ({ page }) => {
     await openEditProfile(page);
 
+    // Plain fill() (value= assignment) doesn't reliably propagate to
+    // Flutter web's internal TextEditingController state, which made this
+    // test intermittently flaky (Save would sometimes see a stale/empty
+    // value and skip validation). pressSequentially dispatches real key
+    // events that Flutter's input pipeline always picks up.
     const website = page.getByRole('textbox', { name: 'Website' });
-    await website.fill('not a url');
+    await website.click();
+    await website.fill('');
+    await website.pressSequentially('not a url');
     await page.getByRole('button', { name: 'Save' }).click();
 
     await expect(page.getByText('Enter a valid URL').first()).toBeVisible({ timeout: 15_000 });
@@ -143,6 +150,13 @@ test.describe('Profile page — edit website & date of birth', () => {
   });
 
   test('PROF-10: website link opens the external site in a new tab', async ({ page, context }) => {
+    // pollsocial.app doesn't resolve in sandboxed CI environments, so the
+    // popup would land on chrome-error://chromewebdata/ before we can read
+    // its URL. Stub the network response instead of relying on real DNS.
+    await context.route('https://pollsocial.app/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>ok</body></html>' }),
+    );
+
     const websiteLink = page.getByRole('button', { name: 'pollsocial.app' });
     await expect(websiteLink).toBeVisible();
 
@@ -151,20 +165,20 @@ test.describe('Profile page — edit website & date of birth', () => {
       websiteLink.click(),
     ]);
 
-    // Read the navigation URL immediately, before DNS resolution can redirect
-    // the popup to a chrome-error:// page in sandboxed CI environments.
-    const targetUrl = popup.url();
-    await popup.waitForLoadState('domcontentloaded').catch(() => {
-      /* the domain may not resolve in a sandboxed test env */
-    });
-    expect(targetUrl).toContain('pollsocial.app');
+    await popup.waitForLoadState('load');
+    expect(popup.url()).toContain('pollsocial.app');
     await popup.close();
+    await context.unroute('https://pollsocial.app/**');
   });
 
   test('PROF-11: clearing the date of birth removes the "Born" chip', async ({ page }) => {
     await openEditProfile(page);
 
-    await expect(page.getByRole('button', { name: /Date of birth/ })).toContainText('Born');
+    // The edit sheet's date picker shows just the formatted date (no "Born"
+    // prefix - that wording is only used on the profile display chip
+    // checked below). The "Clear" suffix button only renders when a date
+    // is currently set, so its presence is the right precondition check.
+    await expect(page.getByRole('button', { name: 'Clear' })).toBeVisible();
     await page.getByRole('button', { name: 'Clear' }).click();
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile updated').first()).toBeVisible();
