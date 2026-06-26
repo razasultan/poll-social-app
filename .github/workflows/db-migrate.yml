@@ -1,0 +1,72 @@
+name: Database Migrations
+
+# Applies supabase/migrations/*.sql to the DEV and PROD Supabase projects via
+# the Supabase CLI, on push to main (when migration files change).
+#
+# - deploy-dev: runs automatically, no gate. Dev is disposable.
+# - deploy-prod: requires manual approval via the `production` GitHub
+#   Environment (Settings -> Environments -> production -> required
+#   reviewers). The job is queued automatically but waits for a reviewer to
+#   click "Approve and deploy" in the Actions tab before it runs. A dry-run
+#   diff is printed before the real push so the reviewer can see exactly
+#   what's about to change.
+#
+# Adding a new migration locally:
+#   supabase migration new <name>
+#   # edit the generated supabase/migrations/<timestamp>_<name>.sql
+#   git add supabase/migrations && git commit
+#
+# One-time setup this workflow depends on (see README "CI/CD" section):
+#   - secrets.SUPABASE_ACCESS_TOKEN  (Supabase dashboard -> Account -> Access Tokens)
+#   - vars.SUPABASE_DEV_PROJECT_REF  = uwomsxkvjqrvhdpnbkit
+#   - vars.SUPABASE_PROD_PROJECT_REF = ioweogjlumrzcbejwbeb
+#   - a `production` Environment with required reviewers configured
+
+on:
+  push:
+    branches: [main]
+    paths: ['supabase/migrations/**']
+  workflow_dispatch: {}
+
+jobs:
+  deploy-dev:
+    name: Push migrations to DEV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link to dev project
+        run: supabase link --project-ref "$SUPABASE_DEV_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DEV_PROJECT_REF: ${{ vars.SUPABASE_DEV_PROJECT_REF }}
+      - name: Push migrations
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+  deploy-prod:
+    name: Push migrations to PROD (requires approval)
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link to prod project
+        run: supabase link --project-ref "$SUPABASE_PROD_PROJECT_REF"
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROD_PROJECT_REF: ${{ vars.SUPABASE_PROD_PROJECT_REF }}
+      - name: Show pending migrations (dry run)
+        run: supabase db push --dry-run
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - name: Push migrations
+        run: supabase db push
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}

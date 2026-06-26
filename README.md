@@ -226,3 +226,44 @@ No production credentials are used in CI.
 - Native Android/iOS integration tests on emulators/simulators
 - `integration_test/app_test.dart` is not run in CI: `-d chrome` is unsupported by the Flutter web target on this Flutter version ("Web devices are not supported for integration tests yet"). Running it would need either `flutter drive` with a web `test_driver` harness, or a Linux-desktop runner with GTK deps for `-d linux`.
 - Release/deployment pipeline (store builds, web hosting deploy) — tracked as a future Notion task
+
+## Database migrations (DEV / PROD sync)
+
+GitHub Actions workflow: `.github/workflows/db-migrate.yml`. Schema changes are no longer hand-applied — they're files in `supabase/migrations/`, applied via the Supabase CLI.
+
+### Authoring a migration
+
+```bash
+supabase migration new add_some_feature
+# edit the generated supabase/migrations/<timestamp>_add_some_feature.sql
+git add supabase/migrations && git commit
+```
+
+Pushing to `main` with new files under `supabase/migrations/` triggers the workflow.
+
+### What the workflow does
+
+| Job | Target | Gate |
+|-----|--------|------|
+| `deploy-dev` | poll-social-app-dev (`uwomsxkvjqrvhdpnbkit`) | None — runs automatically |
+| `deploy-prod` | poll-social-app (`ioweogjlumrzcbejwbeb`) | Requires manual approval (see below) |
+
+`deploy-prod` needs `deploy-dev` to succeed first, prints a `supabase db push --dry-run` diff, then applies it. It's gated behind the `production` GitHub Environment — the job is queued automatically on every push but **waits for a reviewer to click "Approve and deploy"** in the Actions tab before anything actually runs against prod.
+
+### One-time setup (already done as of 2026-06-26, documented for reference)
+
+- `secrets.SUPABASE_ACCESS_TOKEN` — a Supabase personal access token (Supabase dashboard → Account → Access Tokens), added under Settings → Secrets and variables → Actions → **Secrets**.
+- `vars.SUPABASE_DEV_PROJECT_REF` = `uwomsxkvjqrvhdpnbkit`, `vars.SUPABASE_PROD_PROJECT_REF` = `ioweogjlumrzcbejwbeb` — added under the **Variables** tab (not secret, refs aren't sensitive).
+- A `production` Environment (Settings → Environments → New environment) with the maintainer added under **Required reviewers**.
+- `supabase/migrations/<timestamp>_baseline.sql` — a one-time snapshot of the full schema that was already live on both projects before this workflow existed, marked as already-applied on both via `supabase migration repair --status applied <timestamp>` (not pushed). Do not edit it; all real changes are new migration files from here on.
+
+### Local migration commands
+
+```bash
+supabase link --project-ref uwomsxkvjqrvhdpnbkit   # or ioweogjlumrzcbejwbeb for prod
+supabase migration list                            # compare local files vs remote history
+supabase db push --dry-run                         # preview what would be applied
+supabase db push                                   # apply pending migrations
+```
+
+`supabase db pull` (regenerating a migration from the live remote schema) requires Docker Desktop running locally — not needed for normal day-to-day migration authoring, only for re-baselining from scratch.
