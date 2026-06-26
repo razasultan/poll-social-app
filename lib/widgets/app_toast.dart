@@ -94,6 +94,18 @@ class AppToast {
     final bottomInset =
         MediaQuery.viewPaddingOf(context).bottom + 12 + extraBottomOffset;
 
+    // SnackBar's `width` and `margin` are mutually exclusive, and we need
+    // `margin` for bottomInset — so the width cap on wide/desktop layouts
+    // is done via symmetric side margins instead of `width`. Without this,
+    // a floating SnackBar with no `width` set stretches to fill the full
+    // Scaffold width minus margin, which looks like a full-screen banner
+    // on anything wider than a phone.
+    const maxToastWidth = 480.0;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final sideMargin = screenWidth > maxToastWidth + 32
+        ? (screenWidth - maxToastWidth) / 2
+        : 16.0;
+
     messenger
       ..clearSnackBars()
       ..showSnackBar(
@@ -115,7 +127,7 @@ class AppToast {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          margin: EdgeInsets.fromLTRB(16, 0, 16, bottomInset),
+          margin: EdgeInsets.fromLTRB(sideMargin, 0, sideMargin, bottomInset),
           duration: const Duration(seconds: 3),
         ),
       );
