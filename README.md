@@ -233,7 +233,17 @@ GitHub Actions workflow: `.github/workflows/db-migrate.yml`. Schema changes are 
 
 ### Authoring a migration
 
-Filenames are `<timestamp>_v<major>.<minor>.<patch>_<description>.sql`. The leading timestamp is **load-bearing** — it's the actual version key the Supabase CLI uses for ordering and for matching against the remote `supabase_migrations.schema_migrations` row on each project (visible as the "Local"/"Remote" columns in `supabase migration list`). The CLI generates it automatically; never hand-edit it or reorder past migrations. The `vX.Y.Z` tag is purely a human-readable label — bump the minor version for a normal additive change (new table/column/trigger), patch for a small fix to something not yet released, major for a breaking change to existing tables/columns.
+Filenames are `<timestamp>_v<major>.<minor>.<patch>_<description>.sql`. The leading timestamp is **load-bearing** — it's the actual version key the Supabase CLI uses for ordering and for matching against the remote `supabase_migrations.schema_migrations` row on each project (visible as the "Local"/"Remote" columns in `supabase migration list`). The CLI generates it automatically; never hand-edit it or reorder past migrations.
+
+The `vX.Y.Z` tag is purely a human-readable label — the CLI never reads it — following semver semantics applied to schema changes instead of API changes:
+
+| Bump | When | Examples |
+|------|------|----------|
+| **patch** (v1.0.x) | No structural change, or a fix to something not yet relied on by app code | `COMMENT ON`, fixing a typo in a not-yet-used trigger function, adding an index (no behavior change) |
+| **minor** (v1.x.0) | Additive, backward-compatible — existing app code keeps working untouched | New table, new nullable column, new trigger/function, new RLS policy that *grants* access |
+| **major** (vX.0.0) | Breaking — requires a corresponding app code change or it stops working | Dropping/renaming a column or table, changing a column's type or making it `NOT NULL`, tightening/removing an RLS policy, removing a function others depend on |
+
+Decision rule: if existing app code would break without a matching code change, it's major; if it's purely new capability, it's minor; if nothing structural changed, it's patch.
 
 ```bash
 supabase migration new v1.2.0_add_some_feature
