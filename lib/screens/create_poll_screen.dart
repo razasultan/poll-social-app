@@ -1169,28 +1169,39 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
 
 /// Post-publish "share your poll" prompt: the public link plus a native
 /// share sheet / copy-link fallback, dismissible without sharing.
-class _SharePromptSheet extends StatelessWidget {
+class _SharePromptSheet extends StatefulWidget {
   const _SharePromptSheet({required this.question, required this.shareSlug});
 
   final String question;
   final String shareSlug;
 
-  String get _shareUrl => publicShareUrlForSlug(shareSlug);
+  @override
+  State<_SharePromptSheet> createState() => _SharePromptSheetState();
+}
+
+class _SharePromptSheetState extends State<_SharePromptSheet> {
+  bool _justCopied = false;
+
+  String get _shareUrl => publicShareUrlForSlug(widget.shareSlug);
 
   String get _shareText {
-    final q = question.trim();
+    final q = widget.question.trim();
     final intro = q.isEmpty
         ? 'I just published a poll on Poll Social!'
         : 'I just published "$q" on Poll Social!';
     return '$intro\n$_shareUrl';
   }
 
-  Future<void> _copyLink(BuildContext context) async {
+  Future<void> _copyLink() async {
     await Clipboard.setData(ClipboardData(text: _shareUrl));
-    if (!context.mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Link copied to clipboard.')));
+    if (!mounted) return;
+    // A SnackBar would be anchored to the Scaffold behind this modal sheet
+    // and isn't reliably visible while the sheet covers the bottom of the
+    // screen, so confirm inline on the button itself instead.
+    setState(() => _justCopied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _justCopied = false);
+    });
   }
 
   Future<void> _share() => Share.share(_shareText);
@@ -1245,9 +1256,9 @@ class _SharePromptSheet extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => _copyLink(context),
-                  icon: const Icon(Icons.copy_outlined),
-                  label: const Text('Copy link'),
+                  onPressed: _justCopied ? null : _copyLink,
+                  icon: Icon(_justCopied ? Icons.check : Icons.copy_outlined),
+                  label: Text(_justCopied ? 'Copied!' : 'Copy link'),
                 ),
               ),
               const SizedBox(width: 12),

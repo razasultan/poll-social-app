@@ -31,6 +31,16 @@
 
   <title>poll_social_app</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Required by the `passkeys` plugin (pulled in transitively by
+    supabase_flutter's gotrue for optional WebAuthn support — this app
+    doesn't call any passkey APIs itself). Without this, the plugin's web
+    implementation throws on startup and crashes the app. Version must match
+    the passkeys_web version in pubspec.lock; see its CHANGELOG for the
+    matching bundle.js release if upgrading.
+  -->
+  <script src="passkeys-bundle.js"></script>
 </head>
 <body>
   <!--
