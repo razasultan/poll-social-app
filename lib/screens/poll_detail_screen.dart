@@ -40,6 +40,14 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   /// toasts don't render underneath it.
   static const double _toastBottomClearance = 64;
 
+  /// Guards against out-of-order responses: add/edit/delete each call
+  /// [_load] right after their own mutation, so two can be in flight at
+  /// once (e.g. deleting a comment, then immediately posting a new one).
+  /// Without this, whichever network response arrives last wins via
+  /// setState — even if it's the one from the *earlier* request, which can
+  /// briefly resurrect a just-deleted comment with stale data.
+  int _loadGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -53,6 +61,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   }
 
   Future<void> _load({bool showFullLoading = true}) async {
+    final generation = ++_loadGeneration;
     if (showFullLoading) {
       setState(() {
         _loading = true;
@@ -85,6 +94,9 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       });
 
       if (!mounted) return;
+      // A newer _load() call was started while this one was in flight —
+      // its (later) response should win instead, so drop this one.
+      if (generation != _loadGeneration) return;
       setState(() {
         _poll = poll;
         _comments = comments;
@@ -93,6 +105,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      if (generation != _loadGeneration) return;
       if (showFullLoading) {
         setState(() {
           _loading = false;

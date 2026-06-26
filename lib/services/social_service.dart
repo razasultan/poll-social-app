@@ -202,24 +202,40 @@ class SocialService {
     required String userId,
     required String commentText,
   }) async {
-    await _supabase
+    final updated = await _supabase
         .from('comments')
         .update({'comment_text': commentText})
         .eq('id', commentId)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select('id');
+    if (updated.isEmpty) {
+      throw StateError(
+        'Comment not found or you do not have permission to edit it.',
+      );
+    }
   }
 
   /// Removes the row. Prefer this over soft-delete when RLS allows DELETE but blocks
   /// UPDATE that sets `status` away from `active`.
+  ///
+  /// Without `.select()`, a 0-row delete (wrong/stale id, already deleted,
+  /// not the owner) returns the same success response as a 1-row delete —
+  /// the caller would show "Comment deleted" even though nothing happened.
   Future<void> deleteComment({
     required String commentId,
     required String userId,
   }) async {
-    await _supabase
+    final deleted = await _supabase
         .from('comments')
         .delete()
         .eq('id', commentId)
-        .eq('user_id', userId);
+        .eq('user_id', userId)
+        .select('id');
+    if (deleted.isEmpty) {
+      throw StateError(
+        'Comment not found or you do not have permission to delete it.',
+      );
+    }
   }
 
   // TODO: reportComment via ModerationService when target_type for comments is defined.
