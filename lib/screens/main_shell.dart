@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/widgets/trending_rail.dart';
 import '../services/notification_service.dart';
 import '../services/profile_service.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
@@ -144,9 +145,7 @@ class _MainShellState extends State<MainShell> {
           setState(() => _selectedIndex = 0);
           _feedReloadToken.value++;
           _profileReloadToken.value++;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Poll published')));
+          AppToast.success(context, 'Poll published');
           final u = Supabase.instance.client.auth.currentUser;
           if (u != null) await _refreshShellUnreadBadge(u.id);
         }

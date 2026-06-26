@@ -9,6 +9,7 @@ import '../core/config/app_config.dart';
 import '../services/social_service.dart';
 import '../services/vote_service.dart';
 import '../utils/profile_navigation.dart';
+import 'app_toast.dart';
 import 'auth_guard.dart';
 import 'linkified_text.dart';
 import 'poll_result_chart.dart' show buildPollChartEntries;
@@ -283,6 +284,7 @@ class _PollCardState extends State<PollCard> {
           setState(() => _selectedOptionId = optionId);
           await _refreshVoteCounts();
         } on PostgrestException catch (e) {
+          if (!mounted) return;
           final user = Supabase.instance.client.auth.currentUser;
           if (_isDuplicateVoteError(e) && user != null) {
             final vote = await _voteService.getUserVote(
@@ -294,12 +296,17 @@ class _PollCardState extends State<PollCard> {
               setState(() => _selectedOptionId = vote['option_id'].toString());
             }
             await _refreshVoteCounts();
-            _showMessage('You already voted on this poll.');
+            if (!mounted) return;
+            AppToast.warning(context, 'You already voted on this poll.');
           } else {
-            _showMessage(_friendlyError(e.message));
+            AppToast.error(context, _friendlyError(e.message));
           }
         } catch (_) {
-          _showMessage('Could not submit vote. Check your connection.');
+          if (!mounted) return;
+          AppToast.error(
+            context,
+            'Could not submit vote. Check your connection.',
+          );
         } finally {
           if (mounted) setState(() => _voteLoading = false);
         }
@@ -339,18 +346,25 @@ class _PollCardState extends State<PollCard> {
             _likesCount += nextLiked ? 1 : -1;
             if (_likesCount < 0) _likesCount = 0;
           });
+          // Liking succeeded silently before — comment feedback ("Comment
+          // added") had no equivalent here, which felt inconsistent.
+          if (nextLiked) AppToast.success(context, 'Liked!');
         } on PostgrestException catch (e) {
+          if (!mounted) return;
           if (_isDuplicateVoteError(e)) {
-            if (!mounted) return;
             setState(() {
               _liked = true;
             });
-            _showMessage('Already liked.');
+            AppToast.warning(context, 'Already liked.');
           } else {
-            _showMessage(_friendlyError(e.message));
+            AppToast.error(context, _friendlyError(e.message));
           }
         } catch (_) {
-          _showMessage('Could not update like. Check your connection.');
+          if (!mounted) return;
+          AppToast.error(
+            context,
+            'Could not update like. Check your connection.',
+          );
         } finally {
           if (mounted) setState(() => _likeLoading = false);
         }
@@ -374,7 +388,10 @@ class _PollCardState extends State<PollCard> {
   Future<void> _shareResults() async {
     if (_pollId.isEmpty || _sharingResults) return;
     if (!_resultsVisible) {
-      _showMessage('Vote (or wait for the poll to end) to share its results.');
+      AppToast.warning(
+        context,
+        'Vote (or wait for the poll to end) to share its results.',
+      );
       return;
     }
 
@@ -382,18 +399,26 @@ class _PollCardState extends State<PollCard> {
     try {
       // Let the off-screen ShareablePollResultCard lay out and paint first.
       await WidgetsBinding.instance.endOfFrame;
+      if (!mounted) return;
       final boundary =
           _shareCardKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
       if (boundary == null) {
-        _showMessage('Could not generate the share image. Try again.');
+        AppToast.error(
+          context,
+          'Could not generate the share image. Try again.',
+        );
         return;
       }
 
       final image = await boundary.toImage(pixelRatio: 2.5);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (!mounted) return;
       if (byteData == null) {
-        _showMessage('Could not generate the share image. Try again.');
+        AppToast.error(
+          context,
+          'Could not generate the share image. Try again.',
+        );
         return;
       }
 
@@ -404,7 +429,8 @@ class _PollCardState extends State<PollCard> {
       );
       await Share.shareXFiles([file], text: _shareText());
     } catch (_) {
-      _showMessage('Could not share the results image. Try again.');
+      if (!mounted) return;
+      AppToast.error(context, 'Could not share the results image. Try again.');
     } finally {
       if (mounted) setState(() => _sharingResults = false);
     }
@@ -433,13 +459,6 @@ class _PollCardState extends State<PollCard> {
       return 'Session expired. Sign in again.';
     }
     return 'Something went wrong. Try again.';
-  }
-
-  void _showMessage(String text) {
-    if (!mounted) return;
-    ScaffoldMessenger.maybeOf(
-      context,
-    )?.showSnackBar(SnackBar(content: Text(text)));
   }
 
   /// Normalizes negative backend scores; shows "Trending" when zero/invalid after clamp.

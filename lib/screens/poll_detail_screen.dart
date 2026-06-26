@@ -7,6 +7,7 @@ import '../services/moderation_service.dart';
 import '../services/poll_service.dart';
 import '../services/social_service.dart';
 import '../utils/profile_navigation.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
 import '../widgets/poll_result_chart.dart';
@@ -34,6 +35,10 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   Map<String, dynamic>? _poll;
   List<Map<String, dynamic>> _comments = [];
   String? _busyCommentId;
+
+  /// Clears the persistent comment input bar at the bottom of this screen so
+  /// toasts don't render underneath it.
+  static const double _toastBottomClearance = 64;
 
   @override
   void initState() {
@@ -94,7 +99,11 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
           _error = _pollLoadMessage(e);
         });
       } else {
-        _snack('Could not refresh comments.');
+        AppToast.error(
+          context,
+          'Could not refresh comments.',
+          extraBottomOffset: _toastBottomClearance,
+        );
       }
     }
   }
@@ -137,7 +146,11 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   Future<void> _submitComment() async {
     final text = _commentCtrl.text.trim();
     if (text.isEmpty) {
-      _snack('Write a comment first.');
+      AppToast.warning(
+        context,
+        'Write a comment first.',
+        extraBottomOffset: _toastBottomClearance,
+      );
       return;
     }
 
@@ -158,11 +171,23 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
           _commentCtrl.clear();
           await _load(showFullLoading: false);
           if (!mounted) return;
-          _snack('Comment added');
+          AppToast.success(
+            context,
+            'Comment added',
+            extraBottomOffset: _toastBottomClearance,
+          );
         } on PostgrestException catch (e) {
-          _snack(e.message.isNotEmpty ? e.message : 'Could not post comment.');
+          AppToast.error(
+            context,
+            e.message.isNotEmpty ? e.message : 'Could not post comment.',
+            extraBottomOffset: _toastBottomClearance,
+          );
         } catch (_) {
-          _snack('Network error. Try again.');
+          AppToast.error(
+            context,
+            'Network error. Try again.',
+            extraBottomOffset: _toastBottomClearance,
+          );
         } finally {
           if (mounted) setState(() => _postingComment = false);
         }
@@ -185,13 +210,23 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
             reason: 'inappropriate_content',
           );
           if (!mounted) return;
-          ScaffoldMessenger.of(
+          AppToast.success(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Report submitted')));
+            'Report submitted',
+            extraBottomOffset: _toastBottomClearance,
+          );
         } on PostgrestException catch (e) {
-          _snack(e.message.isNotEmpty ? e.message : 'Could not submit report.');
+          AppToast.error(
+            context,
+            e.message.isNotEmpty ? e.message : 'Could not submit report.',
+            extraBottomOffset: _toastBottomClearance,
+          );
         } catch (_) {
-          _snack('Could not submit report. Try again.');
+          AppToast.error(
+            context,
+            'Could not submit report. Try again.',
+            extraBottomOffset: _toastBottomClearance,
+          );
         }
       },
     );
@@ -212,14 +247,11 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       ClipboardData(text: embedSnippetForShareSlug(slug)),
     );
     if (!mounted) return;
-    _snack('Embed code copied to clipboard.');
-  }
-
-  void _snack(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(
+    AppToast.success(
       context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+      'Embed code copied to clipboard.',
+      extraBottomOffset: _toastBottomClearance,
+    );
   }
 
   String? _commentOwnerId(Map<String, dynamic> comment) =>
@@ -263,7 +295,11 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
 
     if (!mounted || saved == null) return;
     if (saved.isEmpty) {
-      _snack('Comment cannot be empty.');
+      AppToast.warning(
+        context,
+        'Comment cannot be empty.',
+        extraBottomOffset: _toastBottomClearance,
+      );
       return;
     }
 
@@ -277,11 +313,23 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       if (!mounted) return;
       await _load(showFullLoading: false);
       if (!mounted) return;
-      _snack('Comment updated');
+      AppToast.success(
+        context,
+        'Comment updated',
+        extraBottomOffset: _toastBottomClearance,
+      );
     } on PostgrestException catch (e) {
-      _snack(e.message.isNotEmpty ? e.message : 'Could not update comment.');
+      AppToast.error(
+        context,
+        e.message.isNotEmpty ? e.message : 'Could not update comment.',
+        extraBottomOffset: _toastBottomClearance,
+      );
     } catch (_) {
-      _snack('Could not update comment. Try again.');
+      AppToast.error(
+        context,
+        'Could not update comment. Try again.',
+        extraBottomOffset: _toastBottomClearance,
+      );
     } finally {
       if (mounted) setState(() => _busyCommentId = null);
     }
@@ -317,11 +365,23 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       if (!mounted) return;
       await _load(showFullLoading: false);
       if (!mounted) return;
-      _snack('Comment deleted');
+      AppToast.success(
+        context,
+        'Comment deleted',
+        extraBottomOffset: _toastBottomClearance,
+      );
     } on PostgrestException catch (e) {
-      _snack(e.message.isNotEmpty ? e.message : 'Could not delete comment.');
+      AppToast.error(
+        context,
+        e.message.isNotEmpty ? e.message : 'Could not delete comment.',
+        extraBottomOffset: _toastBottomClearance,
+      );
     } catch (_) {
-      _snack('Could not delete comment. Try again.');
+      AppToast.error(
+        context,
+        'Could not delete comment. Try again.',
+        extraBottomOffset: _toastBottomClearance,
+      );
     } finally {
       if (mounted) setState(() => _busyCommentId = null);
     }

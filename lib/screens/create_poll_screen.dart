@@ -10,6 +10,7 @@ import '../core/config/app_config.dart';
 import '../services/auth_service.dart';
 import '../services/poll_service.dart';
 import '../services/search_service.dart';
+import '../widgets/app_toast.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
 
@@ -217,18 +218,28 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     super.dispose();
   }
 
-  void _snack(String message) {
+  void _snack(String message, {AppToastType type = AppToastType.error}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    switch (type) {
+      case AppToastType.success:
+        AppToast.success(context, message);
+      case AppToastType.error:
+        AppToast.error(context, message);
+      case AppToastType.warning:
+        AppToast.warning(context, message);
+      case AppToastType.info:
+        AppToast.info(context, message);
+    }
   }
 
   bool _validateForSubmit() {
     final user =
         _authService.currentUser ?? Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _snack('You must be signed in to publish a poll.');
+      _snack(
+        'You must be signed in to publish a poll.',
+        type: AppToastType.warning,
+      );
       return false;
     }
 
@@ -240,7 +251,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       now: DateTime.now(),
     );
     if (error != null) {
-      _snack(error);
+      _snack(error, type: AppToastType.warning);
       return false;
     }
 
@@ -321,7 +332,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
 
   void _addOption() {
     if (_optionCtrls.length >= 5) {
-      _snack('You can add at most five options.');
+      _snack('You can add at most five options.', type: AppToastType.warning);
       return;
     }
     setState(_addOptionSlot);
@@ -329,7 +340,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
 
   void _removeOption(int index) {
     if (_optionCtrls.length <= 2) {
-      _snack('A poll needs at least two options.');
+      _snack('A poll needs at least two options.', type: AppToastType.warning);
       return;
     }
     final removed = _optionCtrls.removeAt(index);
@@ -407,7 +418,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
   void _selectTopic(Map<String, String> topic) {
     if (_selectedTopics.any((t) => t['id'] == topic['id'])) return;
     if (_selectedTopics.length >= _maxTopics) {
-      _snack('You can pick at most $_maxTopics topics.');
+      _snack(
+        'You can pick at most $_maxTopics topics.',
+        type: AppToastType.warning,
+      );
       return;
     }
     setState(() {
@@ -437,7 +451,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       _hashtagCtrl.clear();
     });
     if (_hashtags.length >= _maxHashtags) {
-      _snack('You can add at most $_maxHashtags hashtags.');
+      _snack(
+        'You can add at most $_maxHashtags hashtags.',
+        type: AppToastType.warning,
+      );
     }
   }
 
@@ -480,7 +497,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     final user =
         _authService.currentUser ?? Supabase.instance.client.auth.currentUser;
     if (user == null) {
-      _snack('You must be signed in to publish a poll.');
+      _snack(
+        'You must be signed in to publish a poll.',
+        type: AppToastType.warning,
+      );
       return;
     }
 
@@ -569,7 +589,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
           topicIds: _selectedTopics.map((t) => t['id']!).toList(),
         );
       } catch (_) {
-        _snack('Poll published, but topics could not be saved.');
+        _snack(
+          'Poll published, but topics could not be saved.',
+          type: AppToastType.warning,
+        );
       }
     }
 
@@ -577,7 +600,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       try {
         await _pollService.attachHashtags(pollId: pollId, tags: _hashtags);
       } catch (_) {
-        _snack('Poll published, but hashtags could not be saved.');
+        _snack(
+          'Poll published, but hashtags could not be saved.',
+          type: AppToastType.warning,
+        );
       }
     }
 
@@ -594,7 +620,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
           mediaType: mediaType,
         );
       } catch (_) {
-        _snack('Poll published, but the media could not be uploaded.');
+        _snack(
+          'Poll published, but the media could not be uploaded.',
+          type: AppToastType.warning,
+        );
       }
     }
 
@@ -619,7 +648,10 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       }
     }
     if (optionMediaFailed) {
-      _snack('Poll published, but some option media could not be uploaded.');
+      _snack(
+        'Poll published, but some option media could not be uploaded.',
+        type: AppToastType.warning,
+      );
     }
   }
 

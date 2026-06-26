@@ -7,6 +7,7 @@ import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
 import '../services/social_service.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
 import 'create_poll_screen.dart';
@@ -243,12 +244,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   bool _isDuplicateFollowError(PostgrestException e) =>
       isDuplicateFollowError(e);
 
-  void _followSnack(String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
   Future<void> _reloadFollowRelationship() async {
     final me = _currentUserId;
     if (me == null || me == widget.userId) return;
@@ -304,23 +299,26 @@ class _ProfileScreenState extends State<ProfileScreen>
         } on PostgrestException catch (e) {
           if (!mounted) return;
           if (_isFollowing) {
-            _followSnack(
+            AppToast.error(
+              context,
               e.message.isNotEmpty ? e.message : 'Could not unfollow.',
             );
             await _reloadFollowRelationship();
           } else {
             if (_isDuplicateFollowError(e)) {
               await _reloadFollowRelationship();
-              _followSnack('Already following this profile.');
+              if (!mounted) return;
+              AppToast.warning(context, 'Already following this profile.');
             } else {
-              _followSnack(
+              AppToast.error(
+                context,
                 e.message.isNotEmpty ? e.message : 'Could not follow.',
               );
             }
           }
         } catch (_) {
           if (!mounted) return;
-          _followSnack('Network error. Try again.');
+          AppToast.error(context, 'Network error. Try again.');
           if (_isFollowing) {
             await _reloadFollowRelationship();
           }

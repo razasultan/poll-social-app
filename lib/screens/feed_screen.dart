@@ -7,6 +7,7 @@ import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
 import '../services/seen_polls_store.dart';
+import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/paged_poll_feed.dart';
 import 'create_poll_screen.dart';
@@ -211,9 +212,7 @@ class _FeedScreenState extends State<FeedScreen>
               );
               if (!context.mounted) return;
               if (created == true) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Poll published')));
+                AppToast.success(context, 'Poll published');
                 widget.feedReloadToken?.value++;
               }
             },
