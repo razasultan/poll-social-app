@@ -1,15 +1,23 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/config/app_config.dart';
 import '../services/auth_service.dart';
 import '../services/poll_service.dart';
 import '../services/search_service.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
+
+/// Public share link for a poll's [shareSlug]
+/// (`$publicShareBaseUrl/p/:shareSlug`). Exposed for testing.
+String publicShareUrlForSlug(String shareSlug) {
+  return '${AppConfig.publicShareBaseUrl}/p/$shareSlug';
+}
 
 /// Parses free-typed hashtag text (space/comma separated, optional leading
 /// `#`) into a deduped, lowercased list of tag strings. Exposed for testing.
@@ -507,6 +515,14 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       }
 
       if (!mounted) return;
+      final shareSlug = poll['share_slug']?.toString().trim();
+      if (shareSlug != null && shareSlug.isNotEmpty) {
+        await _showSharePrompt(
+          question: _questionCtrl.text.trim(),
+          shareSlug: shareSlug,
+        );
+      }
+      if (!mounted) return;
       Navigator.of(context).pop(true);
     } on PostgrestException catch (e) {
       _snack(e.message.isNotEmpty ? e.message : 'Could not publish poll.');
@@ -515,6 +531,24 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// Shows the post-publish "share your poll" bottom sheet and waits for it
+  /// to be dismissed (Share/Copy link don't dismiss it; Done and
+  /// swipe/tap-outside do).
+  Future<void> _showSharePrompt({
+    required String question,
+    required String shareSlug,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: _SharePromptSheet(question: question, shareSlug: shareSlug),
+      ),
+    );
   }
 
   /// Attaches topics, hashtags, and media to a poll that was already created
@@ -1127,6 +1161,112 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
             textInputAction: TextInputAction.done,
           ),
           const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// Post-publish "share your poll" prompt: the public link plus a native
+/// share sheet / copy-link fallback, dismissible without sharing.
+class _SharePromptSheet extends StatelessWidget {
+  const _SharePromptSheet({required this.question, required this.shareSlug});
+
+  final String question;
+  final String shareSlug;
+
+  String get _shareUrl => publicShareUrlForSlug(shareSlug);
+
+  String get _shareText {
+    final q = question.trim();
+    final intro = q.isEmpty
+        ? 'I just published a poll on Poll Social!'
+        : 'I just published "$q" on Poll Social!';
+    return '$intro\n$_shareUrl';
+  }
+
+  Future<void> _copyLink(BuildContext context) async {
+    await Clipboard.setData(ClipboardData(text: _shareUrl));
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Link copied to clipboard.')));
+  }
+
+  Future<void> _share() => Share.share(_shareText);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Your poll is live — share it!',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Polls get votes when people outside the app can see them too.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: cs.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.link, size: 18, color: cs.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _shareUrl,
+                    style: theme.textTheme.bodyMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _copyLink(context),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('Copy link'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: _share,
+                  icon: const Icon(Icons.share_outlined),
+                  label: const Text('Share'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Done'),
+            ),
+          ),
         ],
       ),
     );

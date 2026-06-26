@@ -1,8 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:poll_social_app/core/config/app_config.dart';
 import 'package:poll_social_app/screens/create_poll_screen.dart';
 
 void main() {
   final now = DateTime(2026, 6, 7, 12);
+
+  group('publicShareUrlForSlug', () {
+    test('builds the public poll URL from the share base URL and slug', () {
+      expect(
+        publicShareUrlForSlug('abc123'),
+        '${AppConfig.publicShareBaseUrl}/p/abc123',
+      );
+    });
+  });
 
   group('nonEmptyOptionIndices', () {
     test('returns indices of non-blank options in order', () {
