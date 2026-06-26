@@ -233,9 +233,12 @@ GitHub Actions workflow: `.github/workflows/db-migrate.yml`. Schema changes are 
 
 ### Authoring a migration
 
+Filenames are `<timestamp>_v<major>.<minor>.<patch>_<description>.sql`. The leading timestamp is **load-bearing** — it's the actual version key the Supabase CLI uses for ordering and for matching against the remote `supabase_migrations.schema_migrations` row on each project (visible as the "Local"/"Remote" columns in `supabase migration list`). The CLI generates it automatically; never hand-edit it or reorder past migrations. The `vX.Y.Z` tag is purely a human-readable label — bump the minor version for a normal additive change (new table/column/trigger), patch for a small fix to something not yet released, major for a breaking change to existing tables/columns.
+
 ```bash
-supabase migration new add_some_feature
-# edit the generated supabase/migrations/<timestamp>_add_some_feature.sql
+supabase migration new v1.2.0_add_some_feature
+# -> creates supabase/migrations/<timestamp>_v1.2.0_add_some_feature.sql
+# edit that file
 git add supabase/migrations && git commit
 ```
 
@@ -255,7 +258,7 @@ Pushing to `main` with new files under `supabase/migrations/` triggers the workf
 - `secrets.SUPABASE_ACCESS_TOKEN` — a Supabase personal access token (Supabase dashboard → Account → Access Tokens), added under Settings → Secrets and variables → Actions → **Secrets**.
 - `vars.SUPABASE_DEV_PROJECT_REF` = `uwomsxkvjqrvhdpnbkit`, `vars.SUPABASE_PROD_PROJECT_REF` = `ioweogjlumrzcbejwbeb` — added under the **Variables** tab (not secret, refs aren't sensitive).
 - A `production` Environment (Settings → Environments → New environment) with the maintainer added under **Required reviewers**.
-- `supabase/migrations/<timestamp>_baseline.sql` — a one-time snapshot of the full schema that was already live on both projects before this workflow existed, marked as already-applied on both via `supabase migration repair --status applied <timestamp>` (not pushed). Do not edit it; all real changes are new migration files from here on.
+- `supabase/migrations/<timestamp>_v1.0.0_baseline.sql` — a one-time snapshot of the full schema that was already live on both projects before this workflow existed, marked as already-applied on both via `supabase migration repair --status applied <timestamp>` (not pushed). Do not edit it; all real changes are new migration files from here on, starting at v1.1.0.
 
 ### Local migration commands
 

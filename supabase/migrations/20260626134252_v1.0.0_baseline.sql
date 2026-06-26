@@ -4,7 +4,8 @@
 -- Marked as already-applied on both projects via `supabase migration repair
 -- --status applied 20260626134252` (not run via db push) — do not edit this
 -- file after that point. All future schema changes should be new files
--- created with `supabase migration new <name>`.
+-- created with `supabase migration new vX.Y.Z_<name>` (see README "Database
+-- migrations" section for the versioning convention). This file is v1.0.0.
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
