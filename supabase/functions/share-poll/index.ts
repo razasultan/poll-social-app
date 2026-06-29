@@ -14,18 +14,18 @@
 //   - Real browser request -> 302 redirects to the Flutter app's own
 //     /p/:shareSlug route, which resolves the poll and opens it live.
 //
-// TODO: replace APP_WEB_BASE_URL below with the Flutter web build's real
-// hosting domain once it's deployed (see PublicPollScreen / AppConfig
-// .publicShareBaseUrl, which should be set to the same value via
-// --dart-define=PUBLIC_SHARE_BASE_URL=...). NOTE: the localhost value below
-// only resolves on the machine running the Flutter dev server — it's a
-// stand-in for local testing, not something real visitors can open. Replace
-// it with a public URL before sharing links outside this machine.
+// APP_WEB_BASE_URL is sourced from the APP_WEB_BASE_URL project secret (set
+// via `supabase secrets set APP_WEB_BASE_URL=https://your-domain.example`),
+// matching AppConfig.publicShareBaseUrl's own --dart-define=PUBLIC_SHARE_BASE_URL
+// on the Flutter side - keep both in sync. Falls back to the local dev-server
+// URL when the secret isn't set, which only resolves on the machine running
+// the Flutter dev server - not something real visitors can open.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const APP_WEB_BASE_URL = "http://localhost:9555";
+const APP_WEB_BASE_URL = Deno.env.get("APP_WEB_BASE_URL") ??
+  "http://localhost:9555";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
