@@ -8,9 +8,9 @@ import '../services/notification_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
+import '../widgets/create_poll_modal.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
-import 'create_poll_screen.dart';
 import 'feed_screen.dart';
 import 'notifications_screen.dart';
 import 'profile_screen.dart';
@@ -135,11 +135,7 @@ class _MainShellState extends State<MainShell> {
     await AuthGuard.requireAuth(
       context,
       onAuthenticated: () async {
-        final created = await Navigator.of(context).push<bool>(
-          MaterialPageRoute<bool>(
-            builder: (context) => const CreatePollScreen(),
-          ),
-        );
+        final created = await showCreatePollModal(context);
         if (!mounted) return;
         if (created == true) {
           setState(() => _selectedIndex = 0);

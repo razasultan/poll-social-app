@@ -9,8 +9,8 @@ import '../services/notification_service.dart';
 import '../services/seen_polls_store.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
+import '../widgets/create_poll_modal.dart';
 import '../widgets/paged_poll_feed.dart';
-import 'create_poll_screen.dart';
 import 'notifications_screen.dart';
 import 'search_screen.dart';
 import 'settings_screen.dart';
@@ -205,11 +205,7 @@ class _FeedScreenState extends State<FeedScreen>
           await AuthGuard.requireAuth(
             context,
             onAuthenticated: () async {
-              final created = await Navigator.of(context).push<bool>(
-                MaterialPageRoute<bool>(
-                  builder: (context) => const CreatePollScreen(),
-                ),
-              );
+              final created = await showCreatePollModal(context);
               if (!context.mounted) return;
               if (created == true) {
                 AppToast.success(context, 'Poll published');

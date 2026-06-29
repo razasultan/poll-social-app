@@ -9,8 +9,8 @@ import '../services/profile_service.dart';
 import '../services/social_service.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
+import '../widgets/create_poll_modal.dart';
 import '../widgets/poll_card.dart';
-import 'create_poll_screen.dart';
 import 'poll_detail_screen.dart';
 import 'settings_screen.dart';
 
@@ -229,11 +229,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     await AuthGuard.requireAuth(
       context,
       onAuthenticated: () async {
-        final created = await Navigator.of(context).push<bool>(
-          MaterialPageRoute<bool>(
-            builder: (context) => const CreatePollScreen(),
-          ),
-        );
+        final created = await showCreatePollModal(context);
         if (created == true) await _load();
       },
     );
