@@ -103,6 +103,14 @@ export function buildPreviewHtml(options: {
     : `
     <meta name="twitter:card" content="summary">`;
 
+  // No <meta http-equiv="refresh"> here on purpose: this HTML is only ever
+  // served to bot/crawler User-Agents (see isBotUserAgent below), which read
+  // the og:/twitter: meta tags directly and don't need to navigate anywhere.
+  // Facebook's crawler in particular follows a meta-refresh as if it were a
+  // redirect, discarding the OG tags it just read and re-fetching the
+  // refresh target instead - which broke previews entirely while appUrl
+  // still pointed at an unreachable localhost address. Real browsers never
+  // see this page; they get a real 302 redirect further down.
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -114,7 +122,6 @@ export function buildPreviewHtml(options: {
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(summary)}">
   <meta property="og:url" content="${escapeHtml(appUrl)}">${imageTags}
-  <meta http-equiv="refresh" content="0; url=${escapeHtml(appUrl)}">
 </head>
 <body>
   <p>Open <a href="${escapeHtml(appUrl)}">this poll on Poll Social</a>.</p>
