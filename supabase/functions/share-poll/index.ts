@@ -34,7 +34,7 @@ const APP_WEB_BASE_URL = Deno.env.get("APP_WEB_BASE_URL") ??
 // app's own web build, since it needs a real URL independent of
 // APP_WEB_BASE_URL/hosting status.
 const DEFAULT_OG_IMAGE_URL =
-  "https://uwomsxkvjqrvhdpnbkit.supabase.co/storage/v1/object/public/poll-media/2ab016e9-0adb-4e7f-8f56-cc89950f0bea/app-default-share-image.png";
+  "https://uwomsxkvjqrvhdpnbkit.supabase.co/storage/v1/object/public/poll-media/2ab016e9-0adb-4e7f-8f56-cc89950f0bea/app-default-share-image-v2.png";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
