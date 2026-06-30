@@ -127,7 +127,14 @@ test.describe('Profile page — edit website & date of birth', () => {
 
     // Use a full URL so _openWebsite() gets a valid URI with a scheme; without
     // one, Uri.tryParse returns a path-only URI and launchUrl misfires on web.
-    await page.getByRole('textbox', { name: 'Website' }).fill('https://pollsocial.app');
+    // click()+fill('')+pressSequentially (not a bare fill()) - see PROF-08's
+    // comment above: bare fill() intermittently leaves Flutter's web text
+    // field seeing a stale/empty value, so Save can persist nothing.
+    const websiteField = page.getByRole('textbox', { name: 'Website' });
+    await websiteField.click();
+    await websiteField.fill('');
+    await websiteField.pressSequentially('https://pollsocial.app');
+    await expect(websiteField).toHaveValue('https://pollsocial.app');
 
     await page.getByRole('button', { name: /Date of birth/ }).click();
     // Pick the 15th of the currently-displayed month in the date picker.
