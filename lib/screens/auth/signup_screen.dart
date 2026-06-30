@@ -60,6 +60,9 @@ class _SignupScreenState extends State<SignupScreen> {
   late final ProfileService _profileService;
 
   bool _loading = false;
+  // Inline error displayed persistently below the submit button — survives
+  // after the SnackBar auto-dismisses so the user always knows what failed.
+  String? _submitError;
 
   @override
   void initState() {
@@ -84,6 +87,25 @@ class _SignupScreenState extends State<SignupScreen> {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// Maps raw Supabase / network error messages to user-readable copy and
+  /// stores them in [_submitError] so they persist after the SnackBar
+  /// auto-dismisses. The SnackBar is kept for immediate visibility; the
+  /// inline error is the permanent record.
+  void _setError(String rawMessage) {
+    final lower = rawMessage.toLowerCase();
+    final friendly = lower.contains('invalid') && lower.contains('email')
+        ? "That email address doesn't appear to be valid. Please use a different one."
+        : lower.contains('already') || lower.contains('unique')
+        ? 'An account with this email or username already exists.'
+        : lower.contains('password')
+        ? 'Password is too weak or doesn\'t meet the requirements.'
+        : rawMessage.isNotEmpty
+        ? rawMessage
+        : 'Sign up failed. Please check your details and try again.';
+    setState(() => _submitError = friendly);
+    _snack(friendly);
   }
 
   String? _emailValidator(String? v) => validateEmail(v);
@@ -129,18 +151,20 @@ class _SignupScreenState extends State<SignupScreen> {
     final country = _countryCtrl.text.trim();
     final city = _cityCtrl.text.trim();
 
+    setState(() => _submitError = null);
+
     try {
       final available = await _profileService.isUsernameAvailable(username);
       if (!mounted) return;
       if (!available) {
         setState(() => _loading = false);
-        _snack('That username is already taken.');
+        _setError('That username is already taken.');
         return;
       }
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _snack('Could not verify username. Check your connection.');
+      _setError('Could not verify username. Check your connection.');
       return;
     }
 
@@ -163,7 +187,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
       if (user == null) {
         setState(() => _loading = false);
-        _snack('Could not sign up. Check your email and try again.');
+        _setError('Could not sign up. Check your email and try again.');
         return;
       }
 
@@ -205,11 +229,11 @@ class _SignupScreenState extends State<SignupScreen> {
     } on AuthException catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _snack(e.message.isNotEmpty ? e.message : 'Could not sign up.');
+      _setError(e.message);
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
-      _snack('Network error. Try again.');
+      _setError('Network error. Try again.');
     }
   }
 
@@ -349,6 +373,39 @@ class _SignupScreenState extends State<SignupScreen> {
                     textInputAction: TextInputAction.done,
                     onFieldSubmitted: (_) => _submit(),
                   ),
+                  if (_submitError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: cs.errorContainer,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 18,
+                            color: cs.onErrorContainer,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _submitError!,
+                              style: TextStyle(
+                                color: cs.onErrorContainer,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   FilledButton(
                     onPressed: _loading ? null : _submit,
