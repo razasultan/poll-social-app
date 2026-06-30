@@ -27,6 +27,15 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const APP_WEB_BASE_URL = Deno.env.get("APP_WEB_BASE_URL") ??
   "http://localhost:9555";
 
+// Branded fallback used as og:image/twitter:image for polls with no image of
+// their own. Social platforms (Facebook in particular) flag previews with no
+// og:image at all as incomplete, and most clients render a plain text-only
+// card without one. Hosted in the public poll-media bucket rather than the
+// app's own web build, since it needs a real URL independent of
+// APP_WEB_BASE_URL/hosting status.
+const DEFAULT_OG_IMAGE_URL =
+  "https://uwomsxkvjqrvhdpnbkit.supabase.co/storage/v1/object/public/poll-media/2ab016e9-0adb-4e7f-8f56-cc89950f0bea/app-default-share-image.png";
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
@@ -188,7 +197,7 @@ Deno.serve(async (req: Request) => {
     question: poll.question ?? "",
     description: poll.description ?? null,
     authorName: profile?.username ?? null,
-    imageUrl: image?.media_url ?? null,
+    imageUrl: image?.media_url ?? DEFAULT_OG_IMAGE_URL,
     appUrl,
   });
 
