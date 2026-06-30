@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/constants/branding.dart';
 import '../services/auth_service.dart';
 import '../services/moderation_service.dart';
 import '../services/profile_service.dart';
@@ -177,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('About Poll Social'),
+        title: Text('About ${Branding.appName}'),
         content: const Text(
           'Discover and vote on polls from people you follow. '
           'Manage your profile and privacy here.',

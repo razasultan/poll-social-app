@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_config.dart';
+import '../core/constants/branding.dart';
 import '../services/auth_service.dart';
 import '../services/poll_service.dart';
 import '../services/search_service.dart';
@@ -1218,9 +1219,10 @@ class _SharePromptSheetState extends State<_SharePromptSheet> {
 
   String get _shareText {
     final q = widget.question.trim();
+    final appName = Branding.appName;
     final intro = q.isEmpty
-        ? 'I just published a poll on Poll Social!'
-        : 'I just published "$q" on Poll Social!';
+        ? 'I just published a poll on $appName!'
+        : 'I just published "$q" on $appName!';
     return '$intro\n$_shareUrl';
   }
 

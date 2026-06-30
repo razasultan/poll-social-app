@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/constants/branding.dart';
 import 'poll_result_chart.dart' show PollChartEntry;
 
 /// Branded, self-contained card designed to be captured as a shareable PNG
@@ -66,9 +67,9 @@ class ShareablePollResultCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'Poll Social',
-                  style: TextStyle(
+                Text(
+                  Branding.appName,
+                  style: const TextStyle(
                     color: _ink,
                     fontWeight: FontWeight.w800,
                     fontSize: 15,

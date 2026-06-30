@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/constants/branding.dart';
 import '../services/poll_service.dart';
 import 'main_shell.dart';
 import 'poll_detail_screen.dart';
@@ -134,7 +135,7 @@ class _PublicPollScreenState extends State<PublicPollScreen> {
                       const SizedBox(height: 20),
                       FilledButton(
                         onPressed: _openApp,
-                        child: const Text('Go to Poll Social'),
+                        child: Text('Go to ${Branding.appName}'),
                       ),
                     ],
                   ),

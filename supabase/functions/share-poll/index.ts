@@ -27,6 +27,10 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 const APP_WEB_BASE_URL = Deno.env.get("APP_WEB_BASE_URL") ??
   "http://localhost:9555";
 
+// Working name - mirrors lib/core/constants/branding.dart's Branding.appName
+// on the Dart side (this Deno runtime can't import that file directly).
+const APP_NAME = "Poll Social";
+
 // Branded fallback used as og:image/twitter:image for polls with no image of
 // their own. Social platforms (Facebook in particular) flag previews with no
 // og:image at all as incomplete, and most clients render a plain text-only
@@ -97,12 +101,12 @@ export function buildPreviewHtml(options: {
   appUrl: string;
 }): string {
   const { question, description, authorName, imageUrl, appUrl } = options;
-  const title = question.trim().length > 0 ? question.trim() : "Poll Social";
+  const title = question.trim().length > 0 ? question.trim() : APP_NAME;
   const summary = (description?.trim().length ?? 0) > 0
     ? description!.trim()
     : authorName
-    ? `See the results and vote on @${authorName}'s poll on Poll Social.`
-    : "See the results and vote on Poll Social.";
+    ? `See the results and vote on @${authorName}'s poll on ${APP_NAME}.`
+    : `See the results and vote on ${APP_NAME}.`;
 
   const imageTags = imageUrl
     ? `
@@ -124,16 +128,16 @@ export function buildPreviewHtml(options: {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>${escapeHtml(title)} · Poll Social</title>
+  <title>${escapeHtml(title)} · ${APP_NAME}</title>
   <meta name="description" content="${escapeHtml(summary)}">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Poll Social">
+  <meta property="og:site_name" content="${APP_NAME}">
   <meta property="og:title" content="${escapeHtml(title)}">
   <meta property="og:description" content="${escapeHtml(summary)}">
   <meta property="og:url" content="${escapeHtml(appUrl)}">${imageTags}
 </head>
 <body>
-  <p>Open <a href="${escapeHtml(appUrl)}">this poll on Poll Social</a>.</p>
+  <p>Open <a href="${escapeHtml(appUrl)}">this poll on ${APP_NAME}</a>.</p>
 </body>
 </html>`;
 }
@@ -143,13 +147,13 @@ function notFoundHtml(appUrl: string): string {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Poll not found · Poll Social</title>
+  <title>Poll not found · ${APP_NAME}</title>
   <meta name="description" content="This poll could not be found. It may have been deleted.">
   <meta property="og:title" content="Poll not found">
   <meta property="og:description" content="This poll could not be found. It may have been deleted.">
 </head>
 <body>
-  <p>This poll could not be found. <a href="${escapeHtml(appUrl)}">Open Poll Social</a>.</p>
+  <p>This poll could not be found. <a href="${escapeHtml(appUrl)}">Open ${APP_NAME}</a>.</p>
 </body>
 </html>`;
 }

@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_config.dart';
+import '../core/constants/branding.dart';
 import '../services/anon_vote_session_store.dart';
 import '../services/social_service.dart';
 import '../services/vote_service.dart';
@@ -521,13 +522,14 @@ class _PollCardState extends State<PollCard> {
   String _shareText() {
     final question = widget.poll['question']?.toString().trim();
     final hasQuestion = question != null && question.isNotEmpty;
+    final appName = Branding.appName;
     final base = _resultsVisible
         ? (hasQuestion
-              ? '"$question" — see the results on Poll Social!'
-              : 'Check out the results of this poll on Poll Social!')
+              ? '"$question" — see the results on $appName!'
+              : 'Check out the results of this poll on $appName!')
         : (hasQuestion
-              ? '"$question" — vote on Poll Social!'
-              : 'Vote on this poll on Poll Social!');
+              ? '"$question" — vote on $appName!'
+              : 'Vote on this poll on $appName!');
     final url = _shareUrl;
     return url == null ? base : '$base\n$url';
   }

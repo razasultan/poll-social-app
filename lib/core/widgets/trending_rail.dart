@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../screens/poll_detail_screen.dart';
+import '../constants/branding.dart';
 import '../../screens/search_screen.dart';
 import '../../services/feed_service.dart';
 import '../../services/social_service.dart';
@@ -204,7 +205,7 @@ class _SearchField extends StatelessWidget {
               Icon(Icons.search_rounded, color: cs.onSurfaceVariant, size: 20),
               const SizedBox(width: 12),
               Text(
-                'Search Poll Social',
+                'Search ${Branding.appName}',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),

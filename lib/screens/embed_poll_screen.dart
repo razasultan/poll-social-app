@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/config/app_config.dart';
+import '../core/constants/branding.dart';
 import '../services/poll_service.dart';
 import '../widgets/poll_card.dart';
 import '../widgets/poll_result_chart.dart';
@@ -18,13 +19,13 @@ String embedSnippetForShareSlug(String shareSlug) {
   final url = embedUrlForShareSlug(shareSlug);
   return '<iframe src="$url" width="420" height="540" '
       'style="border:1px solid #eff3f4;border-radius:16px;" '
-      'loading="lazy" title="Poll Social poll"></iframe>';
+      'loading="lazy" title="${Branding.appName} poll"></iframe>';
 }
 
 /// Chrome-less poll view designed to be loaded inside a third-party site's
 /// `<iframe>` via `/embed/poll/:shareSlug`. Shows just the poll card, its
-/// results chart, and a small "Powered by Poll Social" footer — no app bar,
-/// bottom navigation, or other app chrome.
+/// results chart, and a small "Powered by [Branding.appName]" footer — no
+/// app bar, bottom navigation, or other app chrome.
 class EmbedPollScreen extends StatefulWidget {
   const EmbedPollScreen({super.key, required this.shareSlug});
 
@@ -119,7 +120,7 @@ class _EmbedPollScreenState extends State<EmbedPollScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Powered by Poll Social',
+                  'Powered by ${Branding.appName}',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
