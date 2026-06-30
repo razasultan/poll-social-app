@@ -451,10 +451,21 @@ class _PollCardState extends State<PollCard> {
   Future<void> _shareResults() async {
     if (_pollId.isEmpty || _sharingResults) return;
     if (!_resultsVisible) {
-      AppToast.warning(
-        context,
-        'Vote (or wait for the poll to end) to share its results.',
-      );
+      // No vote yet, so there are no per-option counts to render into an
+      // image - share the poll link/question as plain text instead of
+      // blocking the action entirely. A poll's shareability is a primary
+      // growth lever and shouldn't be gated behind participation; this only
+      // changes what gets shared, not the separate "vote to see results"
+      // gate on the results display itself.
+      setState(() => _sharingResults = true);
+      try {
+        await Share.share(_shareText());
+      } catch (_) {
+        if (!mounted) return;
+        AppToast.error(context, 'Could not share this poll. Try again.');
+      } finally {
+        if (mounted) setState(() => _sharingResults = false);
+      }
       return;
     }
 
@@ -509,9 +520,14 @@ class _PollCardState extends State<PollCard> {
 
   String _shareText() {
     final question = widget.poll['question']?.toString().trim();
-    final base = (question == null || question.isEmpty)
-        ? 'Check out the results of this poll on Poll Social!'
-        : '"$question" — see the results on Poll Social!';
+    final hasQuestion = question != null && question.isNotEmpty;
+    final base = _resultsVisible
+        ? (hasQuestion
+              ? '"$question" — see the results on Poll Social!'
+              : 'Check out the results of this poll on Poll Social!')
+        : (hasQuestion
+              ? '"$question" — vote on Poll Social!'
+              : 'Vote on this poll on Poll Social!');
     final url = _shareUrl;
     return url == null ? base : '$base\n$url';
   }
@@ -1160,6 +1176,7 @@ class EngagementRow extends StatelessWidget {
             labelStyle: labelStyle,
             hoverColor: _replyColor,
             onTap: () {},
+            semanticLabel: 'Votes',
           ),
           const SizedBox(width: 4),
           _EngagementInk(
@@ -1168,6 +1185,7 @@ class EngagementRow extends StatelessWidget {
             labelStyle: labelStyle,
             hoverColor: _replyColor,
             onTap: onCommentTap ?? () {},
+            semanticLabel: 'Comment',
           ),
           const SizedBox(width: 4),
           _EngagementInk(
@@ -1177,6 +1195,7 @@ class EngagementRow extends StatelessWidget {
             hoverColor: _shareColor,
             loading: shareLoading,
             onTap: shareLoading ? null : (onShareTap ?? () {}),
+            semanticLabel: 'Share',
           ),
           const SizedBox(width: 4),
           _EngagementInk(
@@ -1190,6 +1209,7 @@ class EngagementRow extends StatelessWidget {
             hoverColor: _likeColor,
             loading: likeLoading,
             onTap: likeLoading ? null : onLikeTap,
+            semanticLabel: liked ? 'Unlike' : 'Like',
           ),
         ],
       ),
@@ -1204,6 +1224,7 @@ class _EngagementInk extends StatelessWidget {
     required this.labelStyle,
     required this.onTap,
     required this.hoverColor,
+    required this.semanticLabel,
     this.iconColor,
     this.labelColor,
     this.loading = false,
@@ -1217,6 +1238,10 @@ class _EngagementInk extends StatelessWidget {
   final Color? iconColor;
   final Color? labelColor;
   final bool loading;
+  // This row was previously untestable via Flutter web's semantics tree
+  // (InkWell alone exposes no accessible name) - wrapping in Semantics also
+  // gives screen readers a label for what was otherwise four unlabeled icons.
+  final String semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -1225,44 +1250,48 @@ class _EngagementInk extends StatelessWidget {
     return Expanded(
       child: Align(
         alignment: Alignment.centerLeft,
-        child: InkWell(
-          onTap: onTap,
-          customBorder: const StadiumBorder(),
-          splashColor: hoverColor.withValues(alpha: 0.14),
-          highlightColor: hoverColor.withValues(alpha: 0.08),
-          hoverColor: hoverColor.withValues(alpha: 0.08),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (loading)
-                  SizedBox(
-                    width: EngagementRow._iconSize,
-                    height: EngagementRow._iconSize,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.2,
-                      color: hoverColor,
+        child: Semantics(
+          button: true,
+          label: count > 0 ? '$semanticLabel, $count' : semanticLabel,
+          child: InkWell(
+            onTap: onTap,
+            customBorder: const StadiumBorder(),
+            splashColor: hoverColor.withValues(alpha: 0.14),
+            highlightColor: hoverColor.withValues(alpha: 0.08),
+            hoverColor: hoverColor.withValues(alpha: 0.08),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (loading)
+                    SizedBox(
+                      width: EngagementRow._iconSize,
+                      height: EngagementRow._iconSize,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: hoverColor,
+                      ),
+                    )
+                  else
+                    Icon(
+                      icon,
+                      size: EngagementRow._iconSize,
+                      color: iconColor ?? cs.onSurfaceVariant,
                     ),
-                  )
-                else
-                  Icon(
-                    icon,
-                    size: EngagementRow._iconSize,
-                    color: iconColor ?? cs.onSurfaceVariant,
-                  ),
-                if (count > 0) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    '$count',
-                    style: labelColor != null
-                        ? labelStyle?.copyWith(color: labelColor)
-                        : labelStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  if (count > 0) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '$count',
+                      style: labelColor != null
+                          ? labelStyle?.copyWith(color: labelColor)
+                          : labelStyle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),
