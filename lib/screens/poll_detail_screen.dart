@@ -70,28 +70,16 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     }
     try {
       final rawPoll = await _pollService.getPollById(widget.pollId);
-      final rawComments = await _socialService.getComments(widget.pollId);
+      final rawComments = await _socialService.getCommentThread(widget.pollId);
 
       final poll = rawPoll is Map<String, dynamic>
           ? rawPoll
           : Map<String, dynamic>.from(rawPoll as Map);
 
-      final comments = <Map<String, dynamic>>[];
-      for (final c in rawComments) {
-        if (c is Map<String, dynamic>) {
-          comments.add(c);
-        } else if (c is Map) {
-          comments.add(Map<String, dynamic>.from(c));
-        }
-      }
-      comments.sort((a, b) {
-        final ta = _parseTime(a['created_at']);
-        final tb = _parseTime(b['created_at']);
-        if (ta == null && tb == null) return 0;
-        if (ta == null) return -1;
-        if (tb == null) return 1;
-        return ta.compareTo(tb);
-      });
+      // getCommentThread returns List<Map<String, dynamic>> already sorted
+      // chronologically (ascending: true in the query) and grouped into a
+      // two-level tree (top-level comments carry a 'replies' key).
+      final comments = rawComments;
 
       if (!mounted) return;
       // A newer _load() call was started while this one was in flight —

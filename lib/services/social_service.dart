@@ -1,5 +1,40 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+/// Groups a flat, chronologically-ordered list of comment maps (as returned
+/// by a Supabase `.select()`) into a two-level tree. Each top-level comment
+/// map gains a `'replies'` key holding its direct replies in the same order
+/// they appear in [flat]. Only one level of nesting is supported — replies
+/// cannot themselves have sub-replies (matching Instagram/X/Reddit patterns).
+/// Orphan replies (whose parent id matches no top-level comment, e.g. because
+/// the parent was deleted) are silently dropped. Exposed as a top-level
+/// function so it can be unit-tested without a live Supabase backend.
+List<Map<String, dynamic>> groupCommentsIntoThread(
+  List<Map<String, dynamic>> flat,
+) {
+  // Single pass: bucket into top-level vs. reply maps. The input is already
+  // chronologically sorted so both buckets are implicitly ordered correctly.
+  final replyMap = <String, List<Map<String, dynamic>>>{};
+  final topLevel = <Map<String, dynamic>>[];
+
+  for (final c in flat) {
+    final parentId = c['parent_comment_id']?.toString();
+    if (parentId == null || parentId.isEmpty) {
+      topLevel.add({...c, 'replies': <Map<String, dynamic>>[]});
+    } else {
+      replyMap.putIfAbsent(parentId, () => []).add(c);
+    }
+  }
+
+  for (final top in topLevel) {
+    final id = top['id']?.toString();
+    if (id != null && replyMap.containsKey(id)) {
+      top['replies'] = replyMap[id]!;
+    }
+  }
+
+  return topLevel;
+}
+
 class SocialService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -195,6 +230,19 @@ class SocialService {
         .eq('poll_id', pollId)
         .eq('status', 'active')
         .order('created_at', ascending: true);
+  }
+
+  /// Fetches all active comments for [pollId] in one ordered query and
+  /// groups them into a two-level tree via [groupCommentsIntoThread].
+  Future<List<Map<String, dynamic>>> getCommentThread(String pollId) async {
+    final flat = await _supabase
+        .from('comments')
+        .select('*, profiles(username, display_name, avatar_url)')
+        .eq('poll_id', pollId)
+        .eq('status', 'active')
+        .order('created_at', ascending: true);
+
+    return groupCommentsIntoThread(flat);
   }
 
   Future<void> updateComment({
