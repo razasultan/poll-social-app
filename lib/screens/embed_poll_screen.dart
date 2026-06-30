@@ -75,6 +75,13 @@ class _EmbedPollScreenState extends State<EmbedPollScreen> {
         _loading = false;
         _poll = poll;
       });
+      // EmbedPollScreen never routes through PollDetailScreen, so it needs
+      // its own view-recording call - this is exactly the "external visitor"
+      // case the views_count metric is meant to capture.
+      final pollId = poll['id']?.toString();
+      if (pollId != null && pollId.isNotEmpty) {
+        _pollService.recordView(pollId);
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {

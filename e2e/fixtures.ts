@@ -8,7 +8,14 @@ export const TEST_USERNAME = 'gherkintester1';
 
 /** Logs in via the email/password form on the auth screen. */
 export async function login(page: Page, email = TEST_EMAIL, password = TEST_PASSWORD) {
-  await page.getByRole('textbox', { name: 'Email' }).fill(email);
+  // Bare fill() has intermittently left Flutter web's Email field seeing a
+  // stale/empty value (same class of issue documented for the Password
+  // field below) - click()+fill('')+pressSequentially is the reliable
+  // pattern used elsewhere in this suite (see e2e/profile.spec.ts PROF-08/09).
+  const emailField = page.getByRole('textbox', { name: 'Email' });
+  await emailField.click();
+  await emailField.fill('');
+  await emailField.pressSequentially(email);
   // Flutter's obscureText fields use <input type="password"> which ignores
   // fill() (value= assignment). pressSequentially dispatches real key events
   // that Flutter's input pipeline picks up correctly.

@@ -25,7 +25,14 @@ setup('sign in and save session', async ({ page }) => {
   // login() waits for the Notifications tab, confirming the 5-item auth nav
   // is rendered. Now navigate to Profile (5-of-5) to verify auth.
   await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
-  await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible({ timeout: 15_000 });
+  // .first(): the profile header's own @username renders before the user's
+  // poll list, but each poll card below also shows "@username" as its
+  // author byline - with enough accumulated test polls on this shared dev
+  // account, a bare getByText match becomes ambiguous (strict-mode
+  // violation). The header instance is reliably first in DOM order.
+  await expect(page.getByText(`@${TEST_USERNAME}`).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   await page.context().storageState({ path: authFile });
 });

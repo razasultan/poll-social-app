@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../core/config/app_config.dart';
 import '../core/constants/branding.dart';
 import '../services/anon_vote_session_store.dart';
+import '../services/poll_service.dart';
 import '../services/social_service.dart';
 import '../services/vote_service.dart';
 import '../utils/profile_navigation.dart';
@@ -53,6 +54,7 @@ class PollCard extends StatefulWidget {
 class _PollCardState extends State<PollCard> {
   final VoteService _voteService = VoteService();
   final SocialService _socialService = SocialService();
+  final PollService _pollService = PollService();
 
   bool _bootstrapDone = false;
   bool _voteLoading = false;
@@ -461,6 +463,7 @@ class _PollCardState extends State<PollCard> {
       setState(() => _sharingResults = true);
       try {
         await Share.share(_shareText());
+        _pollService.recordShare(_pollId);
       } catch (_) {
         if (!mounted) return;
         AppToast.error(context, 'Could not share this poll. Try again.');
@@ -503,6 +506,7 @@ class _PollCardState extends State<PollCard> {
         name: 'poll-result.png',
       );
       await Share.shareXFiles([file], text: _shareText());
+      _pollService.recordShare(_pollId);
     } catch (_) {
       if (!mounted) return;
       AppToast.error(context, 'Could not share the results image. Try again.');

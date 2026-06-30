@@ -177,4 +177,39 @@ class PollService {
         .eq('share_slug', shareSlug)
         .maybeSingle();
   }
+
+  // Poll IDs whose view has already been recorded this app session — prevents
+  // double-counting when the user navigates away and back to the same poll
+  // within one session. Intentionally not persisted across restarts (a restart
+  // counts as a new session) and not a SharedPreferences key (analytics
+  // precision isn't the goal; avoiding rapid re-fires within a session is).
+  static final Set<String> _viewedThisSession = {};
+
+  /// Records a view for [pollId] via the `increment_poll_views` RPC.
+  /// No-ops silently if the same poll was already recorded in this session
+  /// or if the RPC call fails — analytics misses are non-fatal.
+  Future<void> recordView(String pollId) async {
+    if (pollId.isEmpty || _viewedThisSession.contains(pollId)) return;
+    _viewedThisSession.add(pollId);
+    try {
+      await _supabase.rpc(
+        'increment_poll_views',
+        params: {'p_poll_id': pollId},
+      );
+    } catch (_) {
+      _viewedThisSession.remove(pollId);
+    }
+  }
+
+  /// Records a share for [pollId] via the `increment_poll_shares` RPC.
+  /// No-ops silently on failure — analytics misses are non-fatal.
+  Future<void> recordShare(String pollId) async {
+    if (pollId.isEmpty) return;
+    try {
+      await _supabase.rpc(
+        'increment_poll_shares',
+        params: {'p_poll_id': pollId},
+      );
+    } catch (_) {}
+  }
 }

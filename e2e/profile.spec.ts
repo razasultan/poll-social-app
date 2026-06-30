@@ -34,7 +34,7 @@ test.describe('Profile page — guest', () => {
     await login(page);
 
     await goToProfileTab(page);
-    await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
+    await expect(page.getByText(`@${TEST_USERNAME}`).first()).toBeVisible();
   });
 });
 
@@ -49,7 +49,7 @@ test.describe('Profile page — authenticated', () => {
   });
 
   test('PROF-03: header shows avatar, name, username, and stats', async ({ page }) => {
-    await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
+    await expect(page.getByText(`@${TEST_USERNAME}`).first()).toBeVisible();
     await expect(page.getByText('Following', { exact: true })).toBeVisible();
     await expect(page.getByText('Followers', { exact: true })).toBeVisible();
     await expect(page.getByText('Polls', { exact: true })).toBeVisible();
@@ -193,7 +193,7 @@ test.describe('Profile page — edit website & date of birth', () => {
     // Return to Profile screen and reload so the chip change is visible.
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
-    await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
+    await expect(page.getByText(`@${TEST_USERNAME}`).first()).toBeVisible();
 
     await expect(page.getByText(/^Born /)).toHaveCount(0);
   });
@@ -201,14 +201,22 @@ test.describe('Profile page — edit website & date of birth', () => {
   test('PROF-12: clearing the website removes the link from the profile', async ({ page }) => {
     await openEditProfile(page);
 
-    await page.getByRole('textbox', { name: 'Website' }).fill('');
+    // A single bare fill('') has intermittently left Flutter web's text
+    // field seeing the stale prior value (same class of issue documented
+    // for PROF-08/09 above) - retry until inputValue() actually reads empty.
+    const websiteField = page.getByRole('textbox', { name: 'Website' });
+    for (let attempt = 0; attempt < 5; attempt++) {
+      await websiteField.click();
+      await websiteField.fill('');
+      if ((await websiteField.inputValue()) === '') break;
+    }
     await page.getByRole('button', { name: 'Save' }).click();
     await expect(page.getByText('Profile updated').first()).toBeVisible();
 
     // Return to Profile screen and reload so the chip change is visible.
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: /Profile\s+Tab \d of \d/ }).click();
-    await expect(page.getByText(`@${TEST_USERNAME}`)).toBeVisible();
+    await expect(page.getByText(`@${TEST_USERNAME}`).first()).toBeVisible();
 
     await expect(page.getByRole('button', { name: 'pollsocial.app' })).toHaveCount(0);
   });

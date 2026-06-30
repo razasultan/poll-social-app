@@ -103,6 +103,10 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
         _loading = false;
         _error = null;
       });
+      // Fire-and-forget view recording after the poll renders successfully.
+      // PollService.recordView deduplicates within the session so navigating
+      // away and back doesn't double-count; failures are silently ignored.
+      _pollService.recordView(widget.pollId);
     } catch (e) {
       if (!mounted) return;
       if (generation != _loadGeneration) return;
