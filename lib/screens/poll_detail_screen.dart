@@ -34,11 +34,21 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   bool _postingComment = false;
   String? _error;
   Map<String, dynamic>? _poll;
+  // Top-level comments only. Replies are fetched lazily per-comment.
   List<Map<String, dynamic>> _comments = [];
+  // comment_id → fetched replies (populated on expand).
+  final Map<String, List<Map<String, dynamic>>> _replies = {};
+  // Which comment threads are currently expanded.
+  final Set<String> _expandedCommentIds = {};
+  // Which comment threads are currently loading their replies.
+  final Set<String> _loadingRepliesFor = {};
   String? _busyCommentId;
-  // Non-null when the user has tapped "Reply" on a top-level comment.
-  String? _replyingToCommentId;
+  // Non-null when the user is composing a reply.
+  String? _replyingToCommentId; // the top-level comment id (parentCommentId)
   String? _replyingToUsername;
+  // For reply-to-reply: the user being @mentioned (may differ from the
+  // top-level comment's author). Sent as reply_to_user_id to addComment().
+  String? _replyingToUserId;
 
   /// Clears the persistent comment input bar at the bottom of this screen so
   /// toasts don't render underneath it.
@@ -75,15 +85,16 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     }
     try {
       final rawPoll = await _pollService.getPollById(widget.pollId);
-      final rawComments = await _socialService.getCommentThread(widget.pollId);
+      final rawComments = await _socialService.getTopLevelComments(
+        widget.pollId,
+      );
 
       final poll = rawPoll is Map<String, dynamic>
           ? rawPoll
           : Map<String, dynamic>.from(rawPoll as Map);
 
-      // getCommentThread returns List<Map<String, dynamic>> already sorted
-      // chronologically (ascending: true in the query) and grouped into a
-      // two-level tree (top-level comments carry a 'replies' key).
+      // Only top-level comments are loaded here. Replies are fetched lazily
+      // per-thread when the user taps "View N replies".
       final comments = rawComments;
 
       if (!mounted) return;
@@ -153,15 +164,22 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     return null;
   }
 
+  /// Starts composing a reply. [comment] may be a top-level comment OR a
+  /// reply tile — in both cases the reply is stored under the same top-level
+  /// parent (flat nesting), but `reply_to_user_id` tracks who is @mentioned.
   void _startReply(Map<String, dynamic> comment) {
     final profile = _commentProfile(comment);
     final username =
         profile?['username']?.toString() ??
         comment['username']?.toString() ??
         'user';
+    final isReply = comment['parent_comment_id'] != null;
     setState(() {
-      _replyingToCommentId = comment['id']?.toString();
+      _replyingToCommentId = isReply
+          ? comment['parent_comment_id'].toString()
+          : comment['id']?.toString();
       _replyingToUsername = username;
+      _replyingToUserId = isReply ? comment['user_id']?.toString() : null;
     });
     _commentFocusNode.requestFocus();
   }
@@ -170,7 +188,42 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     setState(() {
       _replyingToCommentId = null;
       _replyingToUsername = null;
+      _replyingToUserId = null;
     });
+  }
+
+  /// Lazily fetches and shows replies for [commentId].
+  Future<void> _loadReplies(String commentId) async {
+    if (_loadingRepliesFor.contains(commentId)) return;
+    setState(() => _loadingRepliesFor.add(commentId));
+    try {
+      final rows = await _socialService.getReplies(commentId);
+      if (!mounted) return;
+      setState(() {
+        _replies[commentId] = rows;
+        _expandedCommentIds.add(commentId);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(
+        context,
+        'Could not load replies.',
+        extraBottomOffset: _toastBottomClearance,
+      );
+    } finally {
+      if (mounted) setState(() => _loadingRepliesFor.remove(commentId));
+    }
+  }
+
+  void _toggleReplies(String commentId) {
+    if (_expandedCommentIds.contains(commentId)) {
+      setState(() => _expandedCommentIds.remove(commentId));
+    } else if (_replies.containsKey(commentId)) {
+      // Already fetched — just expand without a network round-trip.
+      setState(() => _expandedCommentIds.add(commentId));
+    } else {
+      _loadReplies(commentId);
+    }
   }
 
   Future<void> _submitComment() async {
@@ -185,6 +238,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     }
 
     final parentId = _replyingToCommentId;
+    final replyToUserId = _replyingToUserId;
 
     await AuthGuard.requireAuth(
       context,
@@ -199,11 +253,29 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
             userId: user.id,
             commentText: text,
             parentCommentId: parentId,
+            replyToUserId: replyToUserId,
           );
           if (!mounted) return;
           _commentCtrl.clear();
           _cancelReply();
-          await _load(showFullLoading: false);
+          if (parentId != null) {
+            // Refresh just the reply list for this thread + the top-level
+            // comment so replies_count updates, without re-fetching everything.
+            await Future.wait([
+              _socialService.getReplies(parentId).then((rows) {
+                if (mounted) {
+                  setState(() {
+                    _replies[parentId] = rows;
+                    _expandedCommentIds.add(parentId);
+                  });
+                }
+              }),
+              _load(showFullLoading: false),
+            ]);
+          } else {
+            await _load(showFullLoading: false);
+          }
+          if (!mounted) return;
           if (!mounted) return;
           AppToast.success(
             context,
@@ -489,16 +561,20 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                           )
                         else
                           ..._comments.expand((c) {
-                            final cid = c['id']?.toString();
+                            final cid = c['id']?.toString() ?? '';
                             final ownerId = _commentOwnerId(c);
                             final isOwner =
                                 currentUserId != null &&
                                 ownerId != null &&
                                 ownerId == currentUserId;
-                            final replies =
-                                (c['replies'] as List?)
-                                    ?.cast<Map<String, dynamic>>() ??
-                                [];
+                            final repliesCount =
+                                (c['replies_count'] as num?)?.toInt() ?? 0;
+                            final isExpanded = _expandedCommentIds.contains(
+                              cid,
+                            );
+                            final isLoadingReplies = _loadingRepliesFor
+                                .contains(cid);
+                            final loadedReplies = _replies[cid] ?? [];
 
                             return [
                               _CommentTile(
@@ -509,7 +585,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                                   _parseTime(c['created_at']),
                                 ),
                                 isOwner: isOwner,
-                                busy: cid != null && cid == _busyCommentId,
+                                busy: cid == _busyCommentId,
                                 onEdit: isOwner
                                     ? () => _promptEditComment(c)
                                     : null,
@@ -518,34 +594,91 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                                     : null,
                                 onReply: () => _startReply(c),
                               ),
-                              // Replies are indented 48 px (avatar diameter 36 +
-                              // gap 12) to visually nest under their parent.
-                              for (final r in replies)
+                              // ── Reply thread ───────────────────────────
+                              if (isLoadingReplies)
                                 Padding(
-                                  padding: const EdgeInsets.only(left: 48),
-                                  child: _CommentTile(
-                                    commentUserId: _commentOwnerId(r) ?? '',
-                                    comment: r,
-                                    profile: _commentProfile(r),
-                                    relativeTime: _formatRelativeTime(
-                                      _parseTime(r['created_at']),
+                                  padding: const EdgeInsets.only(
+                                    left: 60,
+                                    top: 4,
+                                    bottom: 8,
+                                  ),
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: cs.onSurfaceVariant,
                                     ),
-                                    isOwner:
-                                        currentUserId != null &&
-                                        _commentOwnerId(r) != null &&
-                                        _commentOwnerId(r) == currentUserId,
-                                    busy: r['id']?.toString() == _busyCommentId,
-                                    onEdit:
-                                        (currentUserId != null &&
-                                            _commentOwnerId(r) == currentUserId)
-                                        ? () => _promptEditComment(r)
-                                        : null,
-                                    onDelete:
-                                        (currentUserId != null &&
-                                            _commentOwnerId(r) == currentUserId)
-                                        ? () => _confirmDeleteComment(r)
-                                        : null,
-                                    // No onReply on replies — one level only.
+                                  ),
+                                )
+                              else if (isExpanded) ...[
+                                for (final r in loadedReplies)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 48),
+                                    child: _CommentTile(
+                                      commentUserId: _commentOwnerId(r) ?? '',
+                                      comment: r,
+                                      profile: _commentProfile(r),
+                                      relativeTime: _formatRelativeTime(
+                                        _parseTime(r['created_at']),
+                                      ),
+                                      isOwner:
+                                          currentUserId != null &&
+                                          _commentOwnerId(r) == currentUserId,
+                                      busy:
+                                          r['id']?.toString() == _busyCommentId,
+                                      onEdit:
+                                          (currentUserId != null &&
+                                              _commentOwnerId(r) ==
+                                                  currentUserId)
+                                          ? () => _promptEditComment(r)
+                                          : null,
+                                      onDelete:
+                                          (currentUserId != null &&
+                                              _commentOwnerId(r) ==
+                                                  currentUserId)
+                                          ? () => _confirmDeleteComment(r)
+                                          : null,
+                                      // Reply-to-reply: tap Reply on a reply
+                                      // tile to @mention that person while
+                                      // keeping the same parent comment.
+                                      onReply: () => _startReply(r),
+                                    ),
+                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 60,
+                                    bottom: 6,
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () => _toggleReplies(cid),
+                                    child: Text(
+                                      'Hide replies',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: cs.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                              ] else if (repliesCount > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 60,
+                                    bottom: 6,
+                                  ),
+                                  child: GestureDetector(
+                                    onTap: () => _toggleReplies(cid),
+                                    child: Text(
+                                      'View $repliesCount '
+                                      '${repliesCount == 1 ? 'reply' : 'replies'}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: cs.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
                                   ),
                                 ),
                             ];
@@ -777,7 +910,14 @@ class _CommentTile extends StatelessWidget {
         comment['username']?.toString() ??
         'Unknown';
     final avatarUrl = profile?['avatar_url']?.toString();
-    final text = comment['comment_text']?.toString() ?? '';
+    // reply_to_user_id is set on reply-to-reply comments. The joined
+    // reply_to_profile.username gives us the @handle to prefix.
+    final replyToUsername = (comment['reply_to_profile'] as Map?)?['username']
+        ?.toString();
+    final rawText = comment['comment_text']?.toString() ?? '';
+    final text = replyToUsername != null
+        ? '@$replyToUsername $rawText'
+        : rawText;
     final uid = commentUserId.trim();
 
     final avatar = CircleAvatar(

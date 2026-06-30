@@ -71,7 +71,7 @@ test.describe('Threaded Comments (2c: Reply UI)', () => {
     await expect(page.getByRole('textbox', { name: /Reply to @/ })).toBeVisible();
   });
 
-  test('THREADS-02: posting a reply nests it under the parent; the reply itself has no Reply button (one-level only)', async ({
+  test('THREADS-02: posting a reply nests it under the parent; the reply also has a Reply button for reply-to-reply', async ({
     page,
   }) => {
     const ts = Date.now();
@@ -103,8 +103,9 @@ test.describe('Threaded Comments (2c: Reply UI)', () => {
     const replyGroup = commentGroup(page, 'Nested reply text');
     await expect(replyGroup).toBeVisible({ timeout: 10_000 });
 
-    // The reply itself must NOT have a Reply button — one level only.
-    await expect(replyGroup.getByRole('button', { name: 'Reply' })).toHaveCount(0);
+    // Replies now have their own Reply button for reply-to-reply (Instagram
+    // model: stays flat under the same parent, just @mentions the person).
+    await expect(replyGroup.getByRole('button', { name: 'Reply' })).toBeVisible();
   });
 
   test('THREADS-03: the cancel-reply button dismisses the banner and restores the default composer', async ({
@@ -131,5 +132,95 @@ test.describe('Threaded Comments (2c: Reply UI)', () => {
     await page.getByRole('button', { name: 'Cancel reply' }).click();
     await expect(page.getByText(/^Replying to @/)).not.toBeVisible({ timeout: 5_000 });
     await expect(page.getByRole('textbox', { name: 'Add a comment…' })).toBeVisible();
+  });
+});
+
+test.describe('Threaded Comments (Instagram-style: lazy loading + reply-to-reply)', () => {
+  test('THREADS-04: replies are hidden by default; "View N replies" button appears and loads replies lazily', async ({
+    page,
+  }) => {
+    const ts = Date.now();
+    await createAndOpenPoll(page, `Threads test 04 ${ts}`);
+
+    // Post a top-level comment.
+    const composer = page.getByRole('textbox');
+    await composer.click();
+    await composer.pressSequentially('Lazy load parent');
+    await page.getByRole('button', { name: 'Send comment' }).click();
+    await expect(page.getByText('Comment added')).toBeVisible({ timeout: 10_000 });
+    const parent = commentGroup(page, 'Lazy load parent');
+    await expect(parent).toBeVisible({ timeout: 12_000 });
+
+    // No replies yet — "View N replies" must not appear.
+    await expect(page.getByText(/View \d+ repl/)).toHaveCount(0);
+
+    // Post a reply — auto-expands after posting so the reply is visible.
+    await parent.getByRole('button', { name: 'Reply' }).click();
+    await expect(page.getByText(/^Replying to @/)).toBeVisible({ timeout: 5_000 });
+    const replyComposer = page.getByRole('textbox', { name: /Reply to @/ });
+    await replyComposer.click();
+    await replyComposer.pressSequentially('Lazy reply');
+    await page.getByRole('button', { name: 'Send comment' }).click();
+    await expect(page.getByText('Comment added')).toBeVisible({ timeout: 10_000 });
+    await expect(commentGroup(page, 'Lazy reply')).toBeVisible({ timeout: 10_000 });
+
+    // Collapse.
+    await page.getByText('Hide replies').click();
+    await expect(commentGroup(page, 'Lazy reply')).not.toBeVisible({ timeout: 5_000 });
+
+    // "View 1 reply" button should appear.
+    const viewBtn = page.getByText(/View 1 repl/);
+    await expect(viewBtn).toBeVisible({ timeout: 5_000 });
+
+    // Lazy expand — no full page reload, just the reply rows appear.
+    await viewBtn.click();
+    await expect(commentGroup(page, 'Lazy reply')).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByText('Hide replies')).toBeVisible();
+  });
+
+  test('THREADS-05: replying to a reply keeps the same parent and prefixes @username', async ({
+    page,
+  }) => {
+    const ts = Date.now();
+    await createAndOpenPoll(page, `Threads test 05 ${ts}`);
+
+    // Post a top-level comment + a reply.
+    const composer = page.getByRole('textbox');
+    await composer.click();
+    await composer.pressSequentially('Top for r2r');
+    await page.getByRole('button', { name: 'Send comment' }).click();
+    await expect(page.getByText('Comment added')).toBeVisible({ timeout: 10_000 });
+    const parent = commentGroup(page, 'Top for r2r');
+    await expect(parent).toBeVisible({ timeout: 12_000 });
+
+    await parent.getByRole('button', { name: 'Reply' }).click();
+    const firstReplyComposer = page.getByRole('textbox', { name: /Reply to @/ });
+    await firstReplyComposer.click();
+    await firstReplyComposer.pressSequentially('First nested reply');
+    await page.getByRole('button', { name: 'Send comment' }).click();
+    await expect(page.getByText('Comment added')).toBeVisible({ timeout: 10_000 });
+
+    // Reply-to-reply: the Reply button on the reply tile.
+    const firstReply = commentGroup(page, 'First nested reply');
+    await expect(firstReply).toBeVisible({ timeout: 10_000 });
+    await firstReply.getByRole('button', { name: 'Reply' }).click();
+    await expect(page.getByText(/^Replying to @/)).toBeVisible({ timeout: 5_000 });
+
+    const r2rComposer = page.getByRole('textbox', { name: /Reply to @/ });
+    await r2rComposer.click();
+    await r2rComposer.pressSequentially('reply-to-reply');
+    await page.getByRole('button', { name: 'Send comment' }).click();
+    await expect(page.getByText('Comment added')).toBeVisible({ timeout: 10_000 });
+
+    // The reply-to-reply should appear with @username prefix.
+    // It lands under the SAME parent (flat nesting, not double-indent).
+    const r2rGroup = page.getByRole('group', {
+      name: /@gherkintester1 reply-to-reply/,
+    });
+    await expect(r2rGroup).toBeVisible({ timeout: 10_000 });
+
+    // Only one indent level — r2r tile must NOT itself have a "Reply" button
+    // (it's the same level as the first reply, so it DOES have one per spec).
+    await expect(r2rGroup.getByRole('button', { name: 'Reply' })).toBeVisible();
   });
 });

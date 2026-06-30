@@ -83,5 +83,33 @@ void main() {
       ]);
       expect(result.map((c) => c['id']), ['3', '1', '2']);
     });
+
+    test('reply_to_user_id field is preserved on reply rows', () {
+      final result = groupCommentsIntoThread([
+        comment('1'),
+        {
+          'id': '2',
+          'parent_comment_id': '1',
+          'reply_to_user_id': 'user-abc',
+          'comment_text': 'r2r reply',
+          'created_at': '2026-01-01T00:00:02Z',
+        },
+      ]);
+      final reply = (result[0]['replies'] as List)[0];
+      expect(reply['reply_to_user_id'], 'user-abc');
+    });
+
+    test('replies_count field is preserved on top-level rows', () {
+      final result = groupCommentsIntoThread([
+        {
+          'id': '1',
+          'parent_comment_id': null,
+          'comment_text': 'parent',
+          'replies_count': 3,
+          'created_at': '2026-01-01T00:00:01Z',
+        },
+      ]);
+      expect(result[0]['replies_count'], 3);
+    });
   });
 }

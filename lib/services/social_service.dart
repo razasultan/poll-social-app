@@ -214,19 +214,58 @@ class SocialService {
     required String userId,
     required String commentText,
     String? parentCommentId,
+    // For reply-to-reply: the user being directly @mentioned. The reply still
+    // uses the top-level comment's id as parentCommentId so nesting stays flat.
+    String? replyToUserId,
   }) async {
     await _supabase.from('comments').insert({
       'poll_id': pollId,
       'user_id': userId,
       'comment_text': commentText,
       'parent_comment_id': parentCommentId,
+      'reply_to_user_id': replyToUserId,
     });
+  }
+
+  /// Fetches only top-level comments (parent_comment_id IS NULL) for [pollId],
+  /// ordered chronologically. Each row includes replies_count so the UI can
+  /// show "View N replies" without loading any reply rows. Replies are fetched
+  /// lazily per-comment via [getReplies].
+  // comments now has two FKs to profiles (user_id and reply_to_user_id) so
+  // PostgREST needs an explicit hint on every profiles() join to disambiguate.
+  // Syntax: profiles!column_name(fields...) or alias:profiles!column_name(...).
+
+  Future<List<Map<String, dynamic>>> getTopLevelComments(String pollId) async {
+    final rows = await _supabase
+        .from('comments')
+        .select('*, profiles!user_id(username, display_name, avatar_url)')
+        .eq('poll_id', pollId)
+        .eq('status', 'active')
+        .isFilter('parent_comment_id', null)
+        .order('created_at', ascending: true);
+    return rows;
+  }
+
+  /// Lazily fetches active replies for a single top-level [commentId].
+  /// Joins both the reply author's profile and the @mentioned user's username
+  /// (for reply-to-reply display).
+  Future<List<Map<String, dynamic>>> getReplies(String commentId) async {
+    final rows = await _supabase
+        .from('comments')
+        .select(
+          '*, profiles!user_id(username, display_name, avatar_url), '
+          'reply_to_profile:profiles!reply_to_user_id(username)',
+        )
+        .eq('parent_comment_id', commentId)
+        .eq('status', 'active')
+        .order('created_at', ascending: true);
+    return rows;
   }
 
   Future<List<dynamic>> getComments(String pollId) async {
     return await _supabase
         .from('comments')
-        .select('*, profiles(username, display_name, avatar_url)')
+        .select('*, profiles!user_id(username, display_name, avatar_url)')
         .eq('poll_id', pollId)
         .eq('status', 'active')
         .order('created_at', ascending: true);
@@ -237,7 +276,7 @@ class SocialService {
   Future<List<Map<String, dynamic>>> getCommentThread(String pollId) async {
     final flat = await _supabase
         .from('comments')
-        .select('*, profiles(username, display_name, avatar_url)')
+        .select('*, profiles!user_id(username, display_name, avatar_url)')
         .eq('poll_id', pollId)
         .eq('status', 'active')
         .order('created_at', ascending: true);
