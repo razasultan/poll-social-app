@@ -1,5 +1,13 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'anon_vote_session_store.dart';
+
+/// Thrown when the `vote-anonymous` Edge Function reports the caller
+/// already voted on this poll (matched by session token or IP), so callers
+/// can show the same "already voted" UX as the authenticated duplicate-vote
+/// path without parsing error bodies themselves.
+class AlreadyVotedException implements Exception {}
+
 class VoteService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
@@ -15,6 +23,41 @@ class VoteService {
     });
   }
 
+  /// Votes as an unauthenticated visitor via the `vote-anonymous` Edge
+  /// Function, which applies its own server-side dedup since RLS has no
+  /// path for anon INSERTs into `votes`. Persists the session token the
+  /// function issues (or echoes back the one already stored) so repeat
+  /// visits are recognized.
+  Future<void> voteAnonymous({
+    required String pollId,
+    required String optionId,
+  }) async {
+    final existingSessionId = await AnonVoteSessionStore.instance.read();
+
+    final response = await _supabase.functions.invoke(
+      'vote-anonymous',
+      body: {
+        'pollId': pollId,
+        'optionId': optionId,
+        'anonSessionId': ?existingSessionId,
+      },
+    );
+
+    final data = response.data;
+    final anonSessionId = data is Map
+        ? data['anonSessionId']?.toString()
+        : null;
+    if (anonSessionId != null && anonSessionId.isNotEmpty) {
+      await AnonVoteSessionStore.instance.save(anonSessionId);
+    }
+
+    if (response.status != 200) {
+      final error = data is Map ? data['error']?.toString() : null;
+      if (error == 'already_voted') throw AlreadyVotedException();
+      throw Exception(error ?? 'Could not submit vote.');
+    }
+  }
+
   Future<dynamic> getUserVote({
     required String pollId,
     required String userId,
@@ -24,6 +67,23 @@ class VoteService {
         .select()
         .eq('poll_id', pollId)
         .eq('user_id', userId)
+        .maybeSingle();
+
+    return response;
+  }
+
+  /// Mirrors [getUserVote] for an anonymous voter, keyed by their persisted
+  /// session token instead of a user id. Plain SELECT - `votes` rows are
+  /// readable by everyone via RLS, so no Edge Function round-trip is needed.
+  Future<dynamic> getAnonVote({
+    required String pollId,
+    required String anonSessionId,
+  }) async {
+    final response = await _supabase
+        .from('votes')
+        .select()
+        .eq('poll_id', pollId)
+        .eq('anon_session_id', anonSessionId)
         .maybeSingle();
 
     return response;

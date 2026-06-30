@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_config.dart';
+import '../services/anon_vote_session_store.dart';
 import '../services/social_service.dart';
 import '../services/vote_service.dart';
 import '../utils/profile_navigation.dart';
@@ -20,6 +21,13 @@ import 'shareable_poll_result_card.dart';
 double pollResultPercentage(int count, int total) {
   if (total <= 0) return 0;
   return (count / total) * 100;
+}
+
+/// Whether an unauthenticated visitor can vote on [poll] without logging in.
+/// Only `public` polls allow this - followers-only/private polls still
+/// require an account. Exposed for testing.
+bool pollAllowsAnonymousVote(Map<String, dynamic> poll) {
+  return poll['visibility']?.toString() == 'public';
 }
 
 /// Feed card for a poll row from Supabase (`polls` select with nested relations).
@@ -234,6 +242,17 @@ class _PollCardState extends State<PollCard> {
           userId: user.id,
         );
         _liked = like != null;
+      } else if (_allowsAnonymousVote) {
+        final anonSessionId = await AnonVoteSessionStore.instance.read();
+        if (anonSessionId != null) {
+          final vote = await _voteService.getAnonVote(
+            pollId: _pollId,
+            anonSessionId: anonSessionId,
+          );
+          if (vote is Map && vote['option_id'] != null) {
+            _selectedOptionId = vote['option_id'].toString();
+          }
+        }
       }
 
       if (_hasVoted || _isExpired) {
@@ -264,8 +283,20 @@ class _PollCardState extends State<PollCard> {
     _optionVotes = next;
   }
 
+  /// Visitors with no account can still vote on public polls - the
+  /// vote-anonymous Edge Function handles dedup server-side since there's no
+  /// RLS path for anon INSERTs into `votes`. Followers-only/private polls
+  /// still require login (handled by [AuthGuard] below).
+  bool get _allowsAnonymousVote => pollAllowsAnonymousVote(widget.poll);
+
   Future<void> _onVote(String optionId) async {
     if (_voteLoading || _hasVoted) return;
+
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null && _allowsAnonymousVote) {
+      await _voteAsGuest(optionId);
+      return;
+    }
 
     await AuthGuard.requireAuth(
       context,
@@ -312,6 +343,38 @@ class _PollCardState extends State<PollCard> {
         }
       },
     );
+  }
+
+  Future<void> _voteAsGuest(String optionId) async {
+    setState(() => _voteLoading = true);
+    try {
+      await _voteService.voteAnonymous(pollId: _pollId, optionId: optionId);
+      if (!mounted) return;
+      setState(() => _selectedOptionId = optionId);
+      await _refreshVoteCounts();
+      if (mounted) setState(() {});
+    } on AlreadyVotedException {
+      final anonSessionId = await AnonVoteSessionStore.instance.read();
+      if (!mounted) return;
+      if (anonSessionId != null) {
+        final vote = await _voteService.getAnonVote(
+          pollId: _pollId,
+          anonSessionId: anonSessionId,
+        );
+        if (!mounted) return;
+        if (vote is Map && vote['option_id'] != null) {
+          setState(() => _selectedOptionId = vote['option_id'].toString());
+        }
+        await _refreshVoteCounts();
+      }
+      if (!mounted) return;
+      AppToast.warning(context, 'You already voted on this poll.');
+    } catch (_) {
+      if (!mounted) return;
+      AppToast.error(context, 'Could not submit vote. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _voteLoading = false);
+    }
   }
 
   bool _isDuplicateVoteError(PostgrestException e) {

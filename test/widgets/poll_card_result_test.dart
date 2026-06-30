@@ -25,4 +25,22 @@ void main() {
       expect(pollResultPercentage(1, 3), closeTo(33.333, 0.001));
     });
   });
+
+  group('pollAllowsAnonymousVote', () {
+    test('allows anonymous voting on public polls', () {
+      expect(pollAllowsAnonymousVote({'visibility': 'public'}), true);
+    });
+
+    test('blocks anonymous voting on followers-only polls', () {
+      expect(pollAllowsAnonymousVote({'visibility': 'followers'}), false);
+    });
+
+    test('blocks anonymous voting on private polls', () {
+      expect(pollAllowsAnonymousVote({'visibility': 'private'}), false);
+    });
+
+    test('blocks anonymous voting when visibility is missing', () {
+      expect(pollAllowsAnonymousVote({}), false);
+    });
+  });
 }
