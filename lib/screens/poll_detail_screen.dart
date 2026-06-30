@@ -28,6 +28,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   final SocialService _socialService = SocialService();
   final ModerationService _moderationService = ModerationService();
   final TextEditingController _commentCtrl = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
 
   bool _loading = true;
   bool _postingComment = false;
@@ -35,6 +36,9 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   Map<String, dynamic>? _poll;
   List<Map<String, dynamic>> _comments = [];
   String? _busyCommentId;
+  // Non-null when the user has tapped "Reply" on a top-level comment.
+  String? _replyingToCommentId;
+  String? _replyingToUsername;
 
   /// Clears the persistent comment input bar at the bottom of this screen so
   /// toasts don't render underneath it.
@@ -57,6 +61,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   @override
   void dispose() {
     _commentCtrl.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 
@@ -148,6 +153,26 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     return null;
   }
 
+  void _startReply(Map<String, dynamic> comment) {
+    final profile = _commentProfile(comment);
+    final username =
+        profile?['username']?.toString() ??
+        comment['username']?.toString() ??
+        'user';
+    setState(() {
+      _replyingToCommentId = comment['id']?.toString();
+      _replyingToUsername = username;
+    });
+    _commentFocusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyingToCommentId = null;
+      _replyingToUsername = null;
+    });
+  }
+
   Future<void> _submitComment() async {
     final text = _commentCtrl.text.trim();
     if (text.isEmpty) {
@@ -158,6 +183,8 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       );
       return;
     }
+
+    final parentId = _replyingToCommentId;
 
     await AuthGuard.requireAuth(
       context,
@@ -171,9 +198,11 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
             pollId: widget.pollId,
             userId: user.id,
             commentText: text,
+            parentCommentId: parentId,
           );
           if (!mounted) return;
           _commentCtrl.clear();
+          _cancelReply();
           await _load(showFullLoading: false);
           if (!mounted) return;
           AppToast.success(
@@ -459,29 +488,67 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                             ),
                           )
                         else
-                          ..._comments.map((c) {
+                          ..._comments.expand((c) {
                             final cid = c['id']?.toString();
                             final ownerId = _commentOwnerId(c);
                             final isOwner =
                                 currentUserId != null &&
                                 ownerId != null &&
                                 ownerId == currentUserId;
-                            return _CommentTile(
-                              commentUserId: ownerId ?? '',
-                              comment: c,
-                              profile: _commentProfile(c),
-                              relativeTime: _formatRelativeTime(
-                                _parseTime(c['created_at']),
+                            final replies =
+                                (c['replies'] as List?)
+                                    ?.cast<Map<String, dynamic>>() ??
+                                [];
+
+                            return [
+                              _CommentTile(
+                                commentUserId: ownerId ?? '',
+                                comment: c,
+                                profile: _commentProfile(c),
+                                relativeTime: _formatRelativeTime(
+                                  _parseTime(c['created_at']),
+                                ),
+                                isOwner: isOwner,
+                                busy: cid != null && cid == _busyCommentId,
+                                onEdit: isOwner
+                                    ? () => _promptEditComment(c)
+                                    : null,
+                                onDelete: isOwner
+                                    ? () => _confirmDeleteComment(c)
+                                    : null,
+                                onReply: () => _startReply(c),
                               ),
-                              isOwner: isOwner,
-                              busy: cid != null && cid == _busyCommentId,
-                              onEdit: isOwner
-                                  ? () => _promptEditComment(c)
-                                  : null,
-                              onDelete: isOwner
-                                  ? () => _confirmDeleteComment(c)
-                                  : null,
-                            );
+                              // Replies are indented 48 px (avatar diameter 36 +
+                              // gap 12) to visually nest under their parent.
+                              for (final r in replies)
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 48),
+                                  child: _CommentTile(
+                                    commentUserId: _commentOwnerId(r) ?? '',
+                                    comment: r,
+                                    profile: _commentProfile(r),
+                                    relativeTime: _formatRelativeTime(
+                                      _parseTime(r['created_at']),
+                                    ),
+                                    isOwner:
+                                        currentUserId != null &&
+                                        _commentOwnerId(r) != null &&
+                                        _commentOwnerId(r) == currentUserId,
+                                    busy: r['id']?.toString() == _busyCommentId,
+                                    onEdit:
+                                        (currentUserId != null &&
+                                            _commentOwnerId(r) == currentUserId)
+                                        ? () => _promptEditComment(r)
+                                        : null,
+                                    onDelete:
+                                        (currentUserId != null &&
+                                            _commentOwnerId(r) == currentUserId)
+                                        ? () => _confirmDeleteComment(r)
+                                        : null,
+                                    // No onReply on replies — one level only.
+                                  ),
+                                ),
+                            ];
                           }),
                       ],
                     ),
@@ -490,63 +557,117 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                     elevation: 8,
                     shadowColor: Colors.black.withValues(alpha: 0.08),
                     color: cs.surface,
-                    child: Padding(
-                      padding: EdgeInsets.fromLTRB(16, 10, 8, 10 + bottomInset),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _commentCtrl,
-                              textCapitalization: TextCapitalization.sentences,
-                              minLines: 1,
-                              maxLines: 5,
-                              enabled: !_postingComment,
-                              decoration: InputDecoration(
-                                hintText: 'Add a comment…',
-                                filled: true,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_replyingToUsername != null)
+                          Container(
+                            width: double.infinity,
+                            color: cs.surfaceContainerHighest,
+                            padding: const EdgeInsets.fromLTRB(16, 6, 8, 6),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.reply_rounded,
+                                  size: 16,
+                                  color: cs.onSurfaceVariant,
                                 ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: cs.outlineVariant,
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Replying to @$_replyingToUsername',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: cs.onSurfaceVariant,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: cs.primary,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          _postingComment
-                              ? const Padding(
-                                  padding: EdgeInsets.all(12),
-                                  child: SizedBox(
-                                    width: 24,
-                                    height: 24,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
+                                Semantics(
+                                  button: true,
+                                  label: 'Cancel reply',
+                                  child: GestureDetector(
+                                    onTap: _cancelReply,
+                                    child: Icon(
+                                      Icons.close_rounded,
+                                      size: 18,
+                                      color: cs.onSurfaceVariant,
                                     ),
                                   ),
-                                )
-                              : IconButton.filled(
-                                  onPressed: _submitComment,
-                                  tooltip: 'Send comment',
-                                  icon: const Icon(Icons.send_rounded),
                                 ),
-                        ],
-                      ),
+                              ],
+                            ),
+                          ),
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            10,
+                            8,
+                            10 + bottomInset,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _commentCtrl,
+                                  focusNode: _commentFocusNode,
+                                  textCapitalization:
+                                      TextCapitalization.sentences,
+                                  textInputAction: TextInputAction.send,
+                                  minLines: 1,
+                                  maxLines: 5,
+                                  enabled: !_postingComment,
+                                  onSubmitted: (_) => _submitComment(),
+                                  decoration: InputDecoration(
+                                    hintText: _replyingToUsername != null
+                                        ? 'Reply to @$_replyingToUsername…'
+                                        : 'Add a comment…',
+                                    filled: true,
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: cs.outlineVariant,
+                                      ),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide(
+                                        color: cs.primary,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              _postingComment
+                                  ? const Padding(
+                                      padding: EdgeInsets.all(12),
+                                      child: SizedBox(
+                                        width: 24,
+                                        height: 24,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      ),
+                                    )
+                                  : IconButton.filled(
+                                      onPressed: _submitComment,
+                                      tooltip: 'Send comment',
+                                      icon: const Icon(Icons.send_rounded),
+                                    ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -623,6 +744,7 @@ class _CommentTile extends StatelessWidget {
     required this.busy,
     this.onEdit,
     this.onDelete,
+    this.onReply,
   });
 
   final String commentUserId;
@@ -633,6 +755,9 @@ class _CommentTile extends StatelessWidget {
   final bool busy;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
+
+  /// Null on reply tiles — only top-level comments support replying.
+  final VoidCallback? onReply;
 
   Widget _wrapProfileTap(BuildContext context, String uid, Widget child) {
     if (uid.isEmpty) return child;
@@ -753,6 +878,20 @@ class _CommentTile extends StatelessWidget {
                   text,
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                 ),
+                if (onReply != null)
+                  GestureDetector(
+                    onTap: onReply,
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        'Reply',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
