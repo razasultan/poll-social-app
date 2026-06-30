@@ -377,6 +377,8 @@ class _NotificationTile extends StatelessWidget {
       case 'comment':
       case 'comments':
         return Icons.chat_bubble_outline_rounded;
+      case 'comment_reply':
+        return Icons.reply_rounded;
       case 'follow':
       case 'follows':
         return Icons.person_add_alt_1_outlined;
