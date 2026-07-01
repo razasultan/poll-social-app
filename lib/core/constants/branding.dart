@@ -1,5 +1,11 @@
 /// Centralized brand identity. Swap these values (and [BrandMark]'s glyph)
 /// to rebrand the app without touching layout code.
+///
+/// When renaming, also update the hard-coded copies that cannot import this
+/// file because they run before Flutter initialises:
+///   - web/index.html  (static HTML served to browsers and crawlers)
+///   - web/manifest.json  (PWA manifest)
+///   - supabase/functions/share-poll/index.ts  (const APP_NAME)
 class Branding {
   Branding._();
 

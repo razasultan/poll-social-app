@@ -1,4 +1,5 @@
 {
+    "_comment": "BRANDING: 'Poll Social' mirrors Branding.appName in lib/core/constants/branding.dart. This JSON is served statically and cannot import that constant — update both together when renaming.",
     "name": "Poll Social",
     "short_name": "Poll Social",
     "start_url": ".",

@@ -21,6 +21,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Ask questions. Start conversations. See what the world really thinks. Poll Social is the social network built around polls.">
 
+  <!--
+    BRANDING: all "Poll Social" strings below mirror Branding.appName in
+    lib/core/constants/branding.dart. This file is served as static HTML
+    before Flutter initialises, so it cannot import that constant directly
+    — the same constraint as supabase/functions/share-poll/index.ts's
+    APP_NAME constant. Update both places together when renaming the app.
+  -->
   <!-- Open Graph / Facebook -->
   <meta property="og:type"        content="website">
   <meta property="og:site_name"   content="Poll Social">
