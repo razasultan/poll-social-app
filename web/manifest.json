@@ -1,11 +1,11 @@
 {
-    "name": "poll_social_app",
-    "short_name": "poll_social_app",
+    "name": "Poll Social",
+    "short_name": "Poll Social",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1D9BF0",
+    "theme_color": "#1D9BF0",
+    "description": "The social network built around polls. Ask questions, start conversations, see what the world really thinks.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
