@@ -42,6 +42,8 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   final Set<String> _expandedCommentIds = {};
   // Which comment threads are currently loading their replies.
   final Set<String> _loadingRepliesFor = {};
+  // Comment IDs liked by the current user (used to seed tile initial state).
+  Set<String> _likedCommentIds = {};
   String? _busyCommentId;
   // Non-null when the user is composing a reply.
   String? _replyingToCommentId; // the top-level comment id (parentCommentId)
@@ -97,6 +99,21 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       // per-thread when the user taps "View N replies".
       final comments = rawComments;
 
+      // Batch-fetch liked comment IDs for the current user so each tile can
+      // seed its optimistic like state without an individual network call.
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+      Set<String> likedIds = {};
+      if (currentUserId != null && comments.isNotEmpty) {
+        final commentIds = comments
+            .map((c) => c['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList();
+        likedIds = await _socialService.getLikedCommentIds(
+          userId: currentUserId,
+          commentIds: commentIds,
+        );
+      }
+
       if (!mounted) return;
       // A newer _load() call was started while this one was in flight —
       // its (later) response should win instead, so drop this one.
@@ -104,6 +121,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
       setState(() {
         _poll = poll;
         _comments = comments;
+        _likedCommentIds = likedIds;
         _loading = false;
         _error = null;
       });
@@ -198,9 +216,23 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     setState(() => _loadingRepliesFor.add(commentId));
     try {
       final rows = await _socialService.getReplies(commentId);
+      // Fetch liked state for replies too so their tiles start correctly.
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      Set<String> likedReplyIds = {};
+      if (userId != null && rows.isNotEmpty) {
+        final replyIds = rows
+            .map((r) => r['id']?.toString() ?? '')
+            .where((id) => id.isNotEmpty)
+            .toList();
+        likedReplyIds = await _socialService.getLikedCommentIds(
+          userId: userId,
+          commentIds: replyIds,
+        );
+      }
       if (!mounted) return;
       setState(() {
         _replies[commentId] = rows;
+        _likedCommentIds = {..._likedCommentIds, ...likedReplyIds};
         _expandedCommentIds.add(commentId);
       });
     } catch (_) {
@@ -586,6 +618,11 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                                 ),
                                 isOwner: isOwner,
                                 busy: cid == _busyCommentId,
+                                currentUserId: currentUserId,
+                                initialLikesCount:
+                                    (c['likes_count'] as num?)?.toInt() ?? 0,
+                                initialIsLiked:
+                                    _likedCommentIds.contains(cid),
                                 onEdit: isOwner
                                     ? () => _promptEditComment(c)
                                     : null,
@@ -627,6 +664,13 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                                           _commentOwnerId(r) == currentUserId,
                                       busy:
                                           r['id']?.toString() == _busyCommentId,
+                                      currentUserId: currentUserId,
+                                      initialLikesCount:
+                                          (r['likes_count'] as num?)?.toInt() ??
+                                          0,
+                                      initialIsLiked: _likedCommentIds.contains(
+                                        r['id']?.toString() ?? '',
+                                      ),
                                       onEdit:
                                           (currentUserId != null &&
                                               _commentOwnerId(r) ==
@@ -639,9 +683,6 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                                                   currentUserId)
                                           ? () => _confirmDeleteComment(r)
                                           : null,
-                                      // Reply-to-reply: tap Reply on a reply
-                                      // tile to @mention that person while
-                                      // keeping the same parent comment.
                                       onReply: () => _startReply(r),
                                     ),
                                   ),
@@ -867,7 +908,7 @@ class _EditCommentDialogState extends State<_EditCommentDialog> {
   }
 }
 
-class _CommentTile extends StatelessWidget {
+class _CommentTile extends StatefulWidget {
   const _CommentTile({
     required this.commentUserId,
     required this.comment,
@@ -875,6 +916,9 @@ class _CommentTile extends StatelessWidget {
     required this.relativeTime,
     required this.isOwner,
     required this.busy,
+    required this.currentUserId,
+    required this.initialLikesCount,
+    required this.initialIsLiked,
     this.onEdit,
     this.onDelete,
     this.onReply,
@@ -886,11 +930,91 @@ class _CommentTile extends StatelessWidget {
   final String relativeTime;
   final bool isOwner;
   final bool busy;
+  final String? currentUserId;
+  final int initialLikesCount;
+  final bool initialIsLiked;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
-
-  /// Null on reply tiles — only top-level comments support replying.
   final VoidCallback? onReply;
+
+  @override
+  State<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends State<_CommentTile> {
+  final SocialService _socialService = SocialService();
+  late bool _liked;
+  late int _likesCount;
+  bool _liking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _liked = widget.initialIsLiked;
+    _likesCount = widget.initialLikesCount;
+  }
+
+  @override
+  void didUpdateWidget(_CommentTile old) {
+    super.didUpdateWidget(old);
+    // Sync if the parent reloads data (e.g. after a refresh).
+    if (old.initialIsLiked != widget.initialIsLiked) _liked = widget.initialIsLiked;
+    if (old.initialLikesCount != widget.initialLikesCount) _likesCount = widget.initialLikesCount;
+  }
+
+  Future<void> _toggleLike() async {
+    final commentId = widget.comment['id']?.toString() ?? '';
+    if (commentId.isEmpty) return;
+
+    await AuthGuard.requireAuth(
+      context,
+      onAuthenticated: () async {
+        final userId = widget.currentUserId;
+        if (userId == null) return;
+
+        // Optimistic flip
+        setState(() {
+          _liked = !_liked;
+          _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
+          _liking = true;
+        });
+
+        try {
+          if (_liked) {
+            await _socialService.likeComment(
+              commentId: commentId,
+              userId: userId,
+            );
+          } else {
+            await _socialService.unlikeComment(
+              commentId: commentId,
+              userId: userId,
+            );
+          }
+        } on PostgrestException catch (e) {
+          if (!mounted) return;
+          setState(() {
+            _liked = !_liked;
+            _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
+          });
+          AppToast.error(
+            context,
+            e.message.isNotEmpty ? e.message : 'Could not update like.',
+            extraBottomOffset: 64,
+          );
+        } catch (_) {
+          if (!mounted) return;
+          setState(() {
+            _liked = !_liked;
+            _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
+          });
+          AppToast.error(context, 'Network error. Try again.', extraBottomOffset: 64);
+        } finally {
+          if (mounted) setState(() => _liking = false);
+        }
+      },
+    );
+  }
 
   Widget _wrapProfileTap(BuildContext context, String uid, Widget child) {
     if (uid.isEmpty) return child;
@@ -906,19 +1030,15 @@ class _CommentTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final username =
-        profile?['username']?.toString() ??
-        comment['username']?.toString() ??
+        widget.profile?['username']?.toString() ??
+        widget.comment['username']?.toString() ??
         'Unknown';
-    final avatarUrl = profile?['avatar_url']?.toString();
-    // reply_to_user_id is set on reply-to-reply comments. The joined
-    // reply_to_profile.username gives us the @handle to prefix.
-    final replyToUsername = (comment['reply_to_profile'] as Map?)?['username']
-        ?.toString();
-    final rawText = comment['comment_text']?.toString() ?? '';
-    final text = replyToUsername != null
-        ? '@$replyToUsername $rawText'
-        : rawText;
-    final uid = commentUserId.trim();
+    final avatarUrl = widget.profile?['avatar_url']?.toString();
+    final replyToUsername =
+        (widget.comment['reply_to_profile'] as Map?)?['username']?.toString();
+    final rawText = widget.comment['comment_text']?.toString() ?? '';
+    final text = replyToUsername != null ? '@$replyToUsername $rawText' : rawText;
+    final uid = widget.commentUserId.trim();
 
     final avatar = CircleAvatar(
       radius: 18,
@@ -970,18 +1090,18 @@ class _CommentTile extends StatelessWidget {
                         ),
                       ),
                     ),
-                    if (relativeTime.isNotEmpty)
+                    if (widget.relativeTime.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(right: 4),
                         child: Text(
-                          relativeTime,
+                          widget.relativeTime,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: cs.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
                       ),
-                    if (busy)
+                    if (widget.busy)
                       const SizedBox(
                         width: 20,
                         height: 20,
@@ -990,7 +1110,9 @@ class _CommentTile extends StatelessWidget {
                           child: CircularProgressIndicator(strokeWidth: 2),
                         ),
                       )
-                    else if (isOwner && onEdit != null && onDelete != null)
+                    else if (widget.isOwner &&
+                        widget.onEdit != null &&
+                        widget.onDelete != null)
                       PopupMenuButton<String>(
                         icon: Icon(
                           Icons.more_vert_rounded,
@@ -1003,8 +1125,8 @@ class _CommentTile extends StatelessWidget {
                           minHeight: 36,
                         ),
                         onSelected: (value) {
-                          if (value == 'edit') onEdit!();
-                          if (value == 'delete') onDelete!();
+                          if (value == 'edit') widget.onEdit!();
+                          if (value == 'delete') widget.onDelete!();
                         },
                         itemBuilder: (context) => const [
                           PopupMenuItem(value: 'edit', child: Text('Edit')),
@@ -1018,20 +1140,66 @@ class _CommentTile extends StatelessWidget {
                   text,
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                 ),
-                if (onReply != null)
-                  GestureDetector(
-                    onTap: onReply,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        'Reply',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                          fontWeight: FontWeight.w600,
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    if (widget.onReply != null)
+                      GestureDetector(
+                        onTap: widget.onReply,
+                        child: Text(
+                          'Reply',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: cs.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    const Spacer(),
+                    // Like button — heart icon + count
+                    Semantics(
+                      button: true,
+                      label: _liked ? 'Unlike comment' : 'Like comment',
+                      child: GestureDetector(
+                        onTap: _liking ? null : _toggleLike,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_liking)
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 1.5,
+                                  color: cs.onSurfaceVariant,
+                                ),
+                              )
+                            else
+                              Icon(
+                                _liked
+                                    ? Icons.favorite_rounded
+                                    : Icons.favorite_border_rounded,
+                                size: 16,
+                                color: _liked ? cs.error : cs.onSurfaceVariant,
+                              ),
+                            if (_likesCount > 0) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                '$_likesCount',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: _liked
+                                      ? cs.error
+                                      : cs.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                  ],
+                ),
               ],
             ),
           ),

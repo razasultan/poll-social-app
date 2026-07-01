@@ -325,5 +325,54 @@ class SocialService {
     }
   }
 
+  Future<void> likeComment({
+    required String commentId,
+    required String userId,
+  }) async {
+    await _supabase.from('comment_likes').insert({
+      'comment_id': commentId,
+      'user_id': userId,
+    });
+  }
+
+  Future<void> unlikeComment({
+    required String commentId,
+    required String userId,
+  }) async {
+    await _supabase
+        .from('comment_likes')
+        .delete()
+        .eq('comment_id', commentId)
+        .eq('user_id', userId);
+  }
+
+  /// Returns the set of comment IDs (from [commentIds]) that [userId] has liked.
+  /// Used to initialise optimistic like state for a batch of comment tiles.
+  Future<Set<String>> getLikedCommentIds({
+    required String userId,
+    required List<String> commentIds,
+  }) async {
+    if (commentIds.isEmpty) return {};
+    final rows = await _supabase
+        .from('comment_likes')
+        .select('comment_id')
+        .eq('user_id', userId)
+        .inFilter('comment_id', commentIds);
+    return {for (final r in rows) r['comment_id'].toString()};
+  }
+
+  /// Returns the like row if [userId] has liked [commentId]; otherwise null.
+  Future<Map<String, dynamic>?> getUserCommentLike({
+    required String commentId,
+    required String userId,
+  }) async {
+    return _supabase
+        .from('comment_likes')
+        .select()
+        .eq('comment_id', commentId)
+        .eq('user_id', userId)
+        .maybeSingle();
+  }
+
   // TODO: reportComment via ModerationService when target_type for comments is defined.
 }
