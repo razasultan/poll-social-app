@@ -17,6 +17,7 @@ import 'auth_guard.dart';
 import 'linkified_text.dart';
 import 'poll_result_chart.dart' show buildPollChartEntries;
 import 'shareable_poll_result_card.dart';
+import 'video_preview.dart';
 
 /// Percentage of [total] votes that [count] represents, clamped to `0` when
 /// there are no votes yet. Exposed for testing.
@@ -1359,9 +1360,8 @@ class OptionMediaThumbnail extends StatelessWidget {
   }
 }
 
-/// Lightweight 16:9 preview for the poll's main attached image/video.
-/// Deliberately avoids inline video playback to keep the feed scroll-light;
-/// videos show a thumbnail with a play glyph and open full-size on tap-through.
+/// 16:9 preview for the poll's main attached image/video.
+/// Videos render as an inline playable player via [VideoPreview].
 class PollMediaPreview extends StatelessWidget {
   const PollMediaPreview({super.key, required this.mediaUrl, this.mediaType});
 
@@ -1376,49 +1376,37 @@ class PollMediaPreview extends StatelessWidget {
 
     if (url == null || url.isEmpty) return const SizedBox.shrink();
 
+    if (isVideo) {
+      return VideoPreview(url: url, height: 220);
+    }
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
       child: AspectRatio(
         aspectRatio: 16 / 9,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.network(
-              url,
-              fit: BoxFit.cover,
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return ColoredBox(
-                  color: cs.surfaceContainerHighest,
-                  child: const Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 2.4),
-                    ),
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stack) => ColoredBox(
-                color: cs.surfaceContainerHighest,
-                child: Icon(
-                  Icons.image_not_supported_outlined,
-                  color: cs.onSurfaceVariant,
+        child: Image.network(
+          url,
+          fit: BoxFit.cover,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return ColoredBox(
+              color: cs.surfaceContainerHighest,
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
                 ),
               ),
+            );
+          },
+          errorBuilder: (context, error, stack) => ColoredBox(
+            color: cs.surfaceContainerHighest,
+            child: Icon(
+              Icons.image_not_supported_outlined,
+              color: cs.onSurfaceVariant,
             ),
-            if (isVideo)
-              ColoredBox(
-                color: Colors.black.withValues(alpha: 0.32),
-                child: const Center(
-                  child: Icon(
-                    Icons.play_circle_fill_rounded,
-                    color: Colors.white,
-                    size: 52,
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );
