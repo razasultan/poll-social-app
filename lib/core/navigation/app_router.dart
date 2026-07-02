@@ -12,6 +12,7 @@ import '../../screens/notifications_screen.dart';
 import '../../screens/poll_detail_screen.dart';
 import '../../screens/profile_screen.dart';
 import '../../screens/public_poll_screen.dart';
+import '../../screens/public_profile_screen.dart';
 import '../../screens/search_screen.dart';
 import '../../screens/settings_screen.dart';
 import '../media/video_pause_observer.dart';
@@ -119,6 +120,13 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/poll/:slug',
       redirect: (ctx, s) => '/p/${s.pathParameters['slug']}',
+    ),
+
+    // ── Public profile page ───────────────────────────────────────────────
+    GoRoute(
+      path: '/u/:username',
+      builder: (ctx, s) =>
+          PublicProfileScreen(username: s.pathParameters['username']!),
     ),
 
     // ── Auth screens ──────────────────────────────────────────────────────

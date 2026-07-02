@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:go_router/go_router.dart';
 
+import '../core/config/app_config.dart';
 import '../core/navigation/branch_utils.dart';
 import '../core/state/profile_notifier.dart';
 import '../core/widgets/timeline_column.dart';
@@ -138,6 +140,15 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   void _onProfileUpdated() => _load();
+
+  void _shareProfile() {
+    final username = _profile?['username']?.toString();
+    if (username == null || username.isEmpty) return;
+    final url =
+        '${AppConfig.publicShareBaseUrl}/u/${Uri.encodeComponent(username)}';
+    Clipboard.setData(ClipboardData(text: url));
+    AppToast.success(context, 'Profile link copied');
+  }
 
   Map<String, dynamic> _asProfileMap(dynamic raw) => asProfileMap(raw);
 
@@ -330,6 +341,12 @@ class _ProfileScreenState extends State<ProfileScreen>
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
+          if (_profile != null)
+            IconButton(
+              tooltip: 'Share profile',
+              icon: const Icon(Icons.link_rounded),
+              onPressed: _shareProfile,
+            ),
           if (_isOwnProfile && _currentUserId != null)
             IconButton(
               tooltip: 'Settings',

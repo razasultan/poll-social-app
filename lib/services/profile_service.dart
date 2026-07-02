@@ -179,6 +179,16 @@ class ProfileService {
     return response == null;
   }
 
+  /// Returns the full profile row for [username], or `null` when not found.
+  /// Lookup is case-insensitive (matches how usernames are stored).
+  Future<Map<String, dynamic>?> getProfileByUsername(String username) async {
+    return await _supabase
+        .from('profiles')
+        .select()
+        .ilike('username', username)
+        .maybeSingle();
+  }
+
   /// Resolves a `@username` mention to its profile id, or `null` when no
   /// matching profile exists. Lookup is case-insensitive.
   Future<String?> getUserIdByUsername(String username) async {
