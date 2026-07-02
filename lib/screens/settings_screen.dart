@@ -173,7 +173,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _snack('Sign in to manage blocked users.');
       return;
     }
-    context.push('/settings/blocked');
+    final settingsPath = GoRouterState.of(context).uri.path;
+    context.push('$settingsPath/blocked');
   }
 
   void _showAbout() {

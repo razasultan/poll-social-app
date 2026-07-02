@@ -334,7 +334,8 @@ class _ProfileScreenState extends State<ProfileScreen>
             IconButton(
               tooltip: 'Settings',
               icon: const Icon(Icons.settings_outlined),
-              onPressed: () => context.push('/settings'),
+              onPressed: () =>
+                  context.push('${branchPrefixFor(context)}/settings'),
             ),
         ],
       ),

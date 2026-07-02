@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/media/video_manager.dart';
+import '../core/navigation/branch_utils.dart';
 import '../core/state/feed_notifier.dart';
 import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
@@ -247,7 +248,8 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () => context.push('/settings'),
+            onPressed: () =>
+                context.push('${branchPrefixFor(context)}/settings'),
           ),
         ],
         title: Row(

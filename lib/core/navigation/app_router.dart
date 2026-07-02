@@ -16,9 +16,9 @@ import '../../screens/search_screen.dart';
 import '../../screens/settings_screen.dart';
 import '../media/video_pause_observer.dart';
 
-/// Sub-routes shared by every shell branch: poll detail and other-user
-/// profile. Paths are relative (no leading `/`) so they nest under each
-/// branch root correctly.
+/// Sub-routes shared by every shell branch: poll detail, other-user profile,
+/// and settings (so the nav rail stays visible while in Settings).
+/// Paths are relative (no leading `/`) so they nest under each branch root.
 List<RouteBase> _branchSubRoutes() => [
   GoRoute(
     path: 'poll/:id',
@@ -28,6 +28,16 @@ List<RouteBase> _branchSubRoutes() => [
     path: 'user/:userId',
     builder: (ctx, s) =>
         ProfileScreen(userId: s.pathParameters['userId']!),
+  ),
+  GoRoute(
+    path: 'settings',
+    builder: (ctx, s) => const SettingsScreen(),
+    routes: [
+      GoRoute(
+        path: 'blocked',
+        builder: (ctx, s) => const BlockedUsersScreen(),
+      ),
+    ],
   ),
 ];
 
@@ -93,18 +103,6 @@ final GoRouter appRouter = GoRouter(
               routes: _branchSubRoutes(),
             ),
           ],
-        ),
-      ],
-    ),
-
-    // ── Settings (top-level, rendered without the shell) ─────────────────
-    GoRoute(
-      path: '/settings',
-      builder: (ctx, s) => const SettingsScreen(),
-      routes: [
-        GoRoute(
-          path: 'blocked',
-          builder: (ctx, s) => const BlockedUsersScreen(),
         ),
       ],
     ),
