@@ -1031,10 +1031,12 @@ class _CommentTileState extends State<_CommentTile> {
   void didUpdateWidget(_CommentTile old) {
     super.didUpdateWidget(old);
     // Sync if the parent reloads data (e.g. after a refresh).
-    if (old.initialIsLiked != widget.initialIsLiked)
+    if (old.initialIsLiked != widget.initialIsLiked) {
       _liked = widget.initialIsLiked;
-    if (old.initialLikesCount != widget.initialLikesCount)
+    }
+    if (old.initialLikesCount != widget.initialLikesCount) {
       _likesCount = widget.initialLikesCount;
+    }
   }
 
   Future<void> _toggleLike() async {
