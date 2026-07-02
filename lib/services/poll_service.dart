@@ -143,6 +143,100 @@ class PollService {
         .eq('id', optionId);
   }
 
+  Future<void> updatePoll({
+    required String pollId,
+    required String question,
+    String? description,
+    required String visibility,
+    DateTime? expiresAt,
+    bool clearExpiry = false,
+  }) async {
+    await _supabase.from('polls').update({
+      'question': question,
+      'description': description?.isEmpty == true ? null : description,
+      'visibility': visibility,
+      'expires_at': clearExpiry ? null : expiresAt?.toIso8601String(),
+    }).eq('id', pollId);
+  }
+
+  Future<void> updatePollOptionText({
+    required String optionId,
+    required String optionText,
+  }) async {
+    await _supabase
+        .from('poll_options')
+        .update({'option_text': optionText})
+        .eq('id', optionId);
+  }
+
+  /// Replaces (or sets for the first time) the poll-level attached media.
+  /// Deletes any existing [poll_media] rows for the poll first, then uploads
+  /// and inserts a fresh row so there is always at most one poll-level media.
+  Future<void> replacePollMedia({
+    required String userId,
+    required String pollId,
+    required Uint8List bytes,
+    required String fileName,
+    required String mediaType,
+  }) async {
+    await _supabase.from('poll_media').delete().eq('poll_id', pollId);
+    await uploadPollMedia(
+      userId: userId,
+      pollId: pollId,
+      bytes: bytes,
+      fileName: fileName,
+      mediaType: mediaType,
+    );
+  }
+
+  /// Replaces the media for a specific option identified by [optionId].
+  /// Re-uses [uploadOptionMedia]'s storage upsert; looks up option_order
+  /// from the DB to build the correct storage path.
+  Future<void> replaceOptionMedia({
+    required String userId,
+    required String pollId,
+    required String optionId,
+    required Uint8List bytes,
+    required String fileName,
+    required String mediaType,
+  }) async {
+    final path = '$userId/$pollId/option-$optionId/$fileName';
+    final storage = _supabase.storage.from('poll-media');
+    await storage.uploadBinary(
+      path,
+      bytes,
+      fileOptions: const FileOptions(upsert: true),
+    );
+    final mediaUrl = storage.getPublicUrl(path);
+    await _supabase
+        .from('poll_options')
+        .update({'media_url': mediaUrl, 'media_type': mediaType})
+        .eq('id', optionId);
+  }
+
+  /// Removes the media for a specific option (clears media_url/media_type).
+  Future<void> removeOptionMedia({required String optionId}) async {
+    await _supabase
+        .from('poll_options')
+        .update({'media_url': null, 'media_type': null})
+        .eq('id', optionId);
+  }
+
+  /// Removes all poll-level attached media rows for [pollId].
+  Future<void> removePollMedia({required String pollId}) async {
+    await _supabase.from('poll_media').delete().eq('poll_id', pollId);
+  }
+
+  /// Returns the total number of votes cast on [pollId].
+  /// Used by the edit screen to decide whether option text is locked.
+  Future<int> getPollVoteCount(String pollId) async {
+    final rows = await _supabase
+        .from('votes')
+        .select('id')
+        .eq('poll_id', pollId);
+    return rows.length;
+  }
+
   Future<void> deletePoll(String pollId) async {
     await _supabase.from('polls').delete().eq('id', pollId);
   }
