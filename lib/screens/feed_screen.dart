@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/media/video_manager.dart';
 import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
@@ -287,6 +288,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
         ),
         bottom: TabBar(
           controller: _tabController,
+          onTap: (_) => VideoManager.pauseAll(),
           tabs: _isGuest
               ? const [Tab(text: 'Latest'), Tab(text: 'Trending')]
               : const [
