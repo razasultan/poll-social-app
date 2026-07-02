@@ -17,6 +17,15 @@ import 'notifications_screen.dart';
 import 'profile_screen.dart';
 import 'search_screen.dart';
 
+/// Pauses all [VideoPreview] instances whenever the shell's nested navigator
+/// pushes a new route (e.g. feed → poll detail, feed → profile).
+class _VideoPauseObserver extends NavigatorObserver {
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    VideoManager.pauseAll();
+  }
+}
+
 /// Root shell with bottom navigation across primary destinations.
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -337,6 +346,7 @@ class _MainShellState extends State<MainShell> {
     // the builder ensures the IndexedStack children are always current.
     final body = Navigator(
       key: _shellNavigatorKey,
+      observers: [_VideoPauseObserver()],
       onGenerateRoute: (settings) => MaterialPageRoute<void>(
         settings: settings,
         builder: (_) {

@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 import '../core/media/video_manager.dart';
-import '../core/navigation/route_observer.dart';
 
 /// Flutter web implementation of [VideoPreview].
 ///
-/// Uses [videoNowPlaying] from [VideoManager] as the shared playback
-/// coordinator — when any instance plays it broadcasts its viewType so all
-/// others pause, and external callers (tab switches, route changes) can call
-/// [VideoManager.pauseAll] to stop everything without touching widget state.
+/// Playback is coordinated through [videoNowPlaying] from [VideoManager]:
+/// starting a video broadcasts its viewType so all other active instances
+/// pause themselves. External callers (tab switches, route pushes via the
+/// shell's _VideoPauseObserver) call [VideoManager.pauseAll] to stop
+/// everything without touching widget state.
 class VideoPreview extends StatefulWidget {
   const VideoPreview({super.key, required this.url, this.height = 200});
 
@@ -23,7 +23,7 @@ class VideoPreview extends StatefulWidget {
   State<VideoPreview> createState() => _VideoPreviewState();
 }
 
-class _VideoPreviewState extends State<VideoPreview> with RouteAware {
+class _VideoPreviewState extends State<VideoPreview> {
   static int _nextId = 0;
 
   late String _viewType;
@@ -36,17 +36,6 @@ class _VideoPreviewState extends State<VideoPreview> with RouteAware {
     _register(widget.url);
     videoNowPlaying.addListener(_onNowPlayingChanged);
   }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final route = ModalRoute.of(context);
-    if (route != null) appRouteObserver.subscribe(this, route);
-  }
-
-  /// Route push (e.g. feed → poll detail). Pause immediately.
-  @override
-  void didPushNext() => _pause();
 
   @override
   void didUpdateWidget(VideoPreview old) {
@@ -96,19 +85,13 @@ class _VideoPreviewState extends State<VideoPreview> with RouteAware {
     }
   }
 
-  void _pause() {
+  void _togglePlay() {
     if (_playing) {
       _video.pause();
       _clearPlaying();
-      if (mounted) setState(() => _playing = false);
-    }
-  }
-
-  void _togglePlay() {
-    if (_playing) {
-      _pause();
+      setState(() => _playing = false);
     } else {
-      videoNowPlaying.value = _viewType; // triggers others to pause
+      videoNowPlaying.value = _viewType;
       _video.play(); // JSPromise discarded intentionally
       setState(() => _playing = true);
     }
@@ -116,7 +99,6 @@ class _VideoPreviewState extends State<VideoPreview> with RouteAware {
 
   @override
   void dispose() {
-    appRouteObserver.unsubscribe(this);
     videoNowPlaying.removeListener(_onNowPlayingChanged);
     _clearPlaying();
     _video.pause();
