@@ -19,7 +19,7 @@ class SupabaseConfig {
 
     await Supabase.initialize(
       url: AppConfig.supabaseUrl,
-      anonKey: AppConfig.supabaseAnonKey,
+      publishableKey: AppConfig.supabaseAnonKey,
     );
 
     if (kDebugMode) {
