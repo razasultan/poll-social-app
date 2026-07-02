@@ -34,27 +34,31 @@ class VoteService {
   }) async {
     final existingSessionId = await AnonVoteSessionStore.instance.read();
 
-    final response = await _supabase.functions.invoke(
-      'vote-anonymous',
-      body: {
-        'pollId': pollId,
-        'optionId': optionId,
-        'anonSessionId': ?existingSessionId,
-      },
-    );
+    try {
+      final response = await _supabase.functions.invoke(
+        'vote-anonymous',
+        body: {
+          'pollId': pollId,
+          'optionId': optionId,
+          'anonSessionId': ?existingSessionId,
+        },
+      );
 
-    final data = response.data;
-    final anonSessionId = data is Map
-        ? data['anonSessionId']?.toString()
-        : null;
-    if (anonSessionId != null && anonSessionId.isNotEmpty) {
-      await AnonVoteSessionStore.instance.save(anonSessionId);
-    }
-
-    if (response.status != 200) {
-      final error = data is Map ? data['error']?.toString() : null;
+      final data = response.data;
+      final anonSessionId = data is Map
+          ? data['anonSessionId']?.toString()
+          : null;
+      if (anonSessionId != null && anonSessionId.isNotEmpty) {
+        await AnonVoteSessionStore.instance.save(anonSessionId);
+      }
+    } on FunctionException catch (e) {
+      // functions.invoke() throws FunctionException for non-2xx responses
+      // before any response-body inspection can happen, so the already_voted
+      // check must live here rather than after the call.
+      final body = e.details;
+      final error = body is Map ? body['error']?.toString() : null;
       if (error == 'already_voted') throw AlreadyVotedException();
-      throw Exception(error ?? 'Could not submit vote.');
+      rethrow;
     }
   }
 
