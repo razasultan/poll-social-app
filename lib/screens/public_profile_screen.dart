@@ -17,7 +17,6 @@ class PublicProfileScreen extends StatefulWidget {
 
   final String username;
 
-  /// Max content column width — matches the in-app timeline width.
   static const double _maxWidth = 680;
 
   @override
@@ -80,12 +79,21 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
-  /// Opens the profile inside the authenticated shell, switching to the
-  /// home branch so the user can browse freely after logging in.
   void _openInApp() {
     final userId = _profile?['id']?.toString();
     context.go(userId != null ? '/home/user/$userId' : '/home');
   }
+
+  Widget _constrained(Widget child) => Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(
+        maxWidth: PublicProfileScreen._maxWidth,
+      ),
+      child: child,
+    ),
+  );
+
+  // ── App bar ──────────────────────────────────────────────────────────────
 
   Widget _buildAppBar() {
     return SliverAppBar(
@@ -102,11 +110,11 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 
+  // ── Guest bottom bar ─────────────────────────────────────────────────────
+
   Widget _buildGuestBottomBar(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    // Compute horizontal padding so the bar content aligns with the profile
-    // column above it. On narrow screens fall back to 20px inset.
     final screenW = MediaQuery.sizeOf(context).width;
     const maxW = PublicProfileScreen._maxWidth;
     final hPad = screenW > maxW ? (screenW - maxW) / 2 : 20.0;
@@ -176,6 +184,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 
+  // ── Build ─────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -227,155 +237,164 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               ),
             )
           else ...[
-            SliverToBoxAdapter(child: _buildProfile(theme, cs)),
+            // ── Profile header (image, avatar, name, bio) ────────────────
+            SliverToBoxAdapter(child: _buildHeader(theme, cs)),
+
+            // ── Polls label ───────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: _constrained(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: Text(
+                    'Polls',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Poll cards — SliverList matches authenticated profile ──────
+            if (_polls.isEmpty)
+              SliverToBoxAdapter(
+                child: _constrained(
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No public polls yet.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => _constrained(
+                    PollCard(
+                      poll: _polls[i],
+                      onPollTap: () {
+                        final pollId = _polls[i]['id']?.toString();
+                        if (pollId == null) return;
+                        context.go('/home/poll/$pollId');
+                      },
+                    ),
+                  ),
+                  childCount: _polls.length,
+                ),
+              ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildProfile(ThemeData theme, ColorScheme cs) {
+  // ── Profile header widget ─────────────────────────────────────────────────
+
+  Widget _buildHeader(ThemeData theme, ColorScheme cs) {
     final profile = _profile!;
     final displayName = profile['display_name']?.toString() ?? '';
     final username = profile['username']?.toString() ?? '';
     final bio = profile['bio']?.toString() ?? '';
     final avatarUrl = profile['avatar_url']?.toString();
     final headerUrl = profile['header_url']?.toString();
-    final initials =
-        (displayName.isNotEmpty ? displayName : username).isNotEmpty
-        ? (displayName.isNotEmpty ? displayName : username)[0].toUpperCase()
+    final nameOrUsername = displayName.isNotEmpty ? displayName : username;
+    final initials = nameOrUsername.isNotEmpty
+        ? nameOrUsername[0].toUpperCase()
         : '?';
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          maxWidth: PublicProfileScreen._maxWidth,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // ── Header image ──────────────────────────────────────────────
-            if (headerUrl != null && headerUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(16),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3,
-                  child: Image.network(
-                    headerUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (ctx, err, e) => const SizedBox.shrink(),
-                  ),
+    return _constrained(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header image
+          if (headerUrl != null && headerUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
+              child: AspectRatio(
+                aspectRatio: 3,
+                child: Image.network(
+                  headerUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, e) => const SizedBox.shrink(),
                 ),
               ),
+            ),
 
-            // ── Avatar + name ─────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 36,
-                    backgroundColor: cs.primaryContainer,
-                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: avatarUrl == null || avatarUrl.isEmpty
-                        ? Text(
-                            initials,
-                            style: theme.textTheme.headlineMedium?.copyWith(
-                              color: cs.onPrimaryContainer,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (displayName.isNotEmpty)
-                          Text(
-                            displayName,
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+          // Avatar + name
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: cs.primaryContainer,
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(
+                          initials,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: cs.onPrimaryContainer,
+                            fontWeight: FontWeight.w700,
                           ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (displayName.isNotEmpty)
                         Text(
-                          '@$username',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: cs.onSurfaceVariant,
+                          displayName,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
                           ),
                         ),
-                      ],
-                    ),
+                      Text(
+                        '@$username',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                  // Open in app (for logged-in users only, guests use bottom bar)
-                  if (!_isGuest)
-                    TextButton.icon(
-                      onPressed: _openInApp,
-                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                      label: const Text('Open in app'),
-                    ),
-                ],
-              ),
+                ),
+                if (!_isGuest)
+                  TextButton.icon(
+                    onPressed: _openInApp,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text('Open in app'),
+                  ),
+              ],
             ),
+          ),
 
-            // ── Bio ───────────────────────────────────────────────────────
-            if (bio.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Text(bio, style: theme.textTheme.bodyMedium),
-              ),
-
-            const Padding(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Divider(),
-            ),
-
-            // ── Polls section header ──────────────────────────────────────
+          // Bio
+          if (bio.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text(
-                'Polls',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Text(bio, style: theme.textTheme.bodyMedium),
             ),
 
-            // ── Poll list ─────────────────────────────────────────────────
-            if (_polls.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(24),
-                child: Center(
-                  child: Text(
-                    'No public polls yet.',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    ),
-                  ),
-                ),
-              )
-            else
-              ...List.generate(
-                _polls.length,
-                (i) => PollCard(
-                  poll: _polls[i],
-                  onPollTap: () {
-                    final pollId = _polls[i]['id']?.toString();
-                    if (pollId == null) return;
-                    context.go('/home/poll/$pollId');
-                  },
-                ),
-              ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Divider(),
+          ),
+        ],
       ),
     );
   }
