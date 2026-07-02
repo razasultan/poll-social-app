@@ -58,12 +58,11 @@ class _MainShellState extends State<MainShell> {
     ) {
       if (data.event == AuthChangeEvent.signedOut) {
         VideoManager.pauseAll();
-        // Push LoginScreen on top of the shell (keep shell alive underneath
-        // so that after login, pop() lands back here naturally).
+        // Replace the entire navigation stack with /login so the user is
+        // taken there immediately. Login success calls context.go('/home')
+        // when there is nothing to pop back to.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) context.push('/login');
-          });
+          if (mounted) context.go('/login');
         });
         return;
       }

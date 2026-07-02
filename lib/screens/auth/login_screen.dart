@@ -71,7 +71,14 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordCtrl.text,
       );
       if (!mounted) return;
-      if (context.canPop()) context.pop();
+      // After sign-out the router replaces the stack with /login so there is
+      // nothing to pop — navigate to home instead. When login was pushed as
+      // an overlay (e.g. from AuthGuard), pop returns to the previous screen.
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/home');
+      }
     } on AuthException catch (e) {
       if (!mounted) return;
       final parts = <String>[
