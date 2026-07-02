@@ -82,6 +82,31 @@ class PollService {
     await _supabase.from('poll_hashtags').insert(rows);
   }
 
+  /// Extracts the storage object path from a Supabase public URL so old
+  /// files can be deleted with [StorageFileApi.remove].
+  /// e.g. `https://.../poll-media/userId/pollId/file.mp4` → `userId/pollId/file.mp4`
+  static String? _storagePathFromUrl(String? url) {
+    if (url == null || url.isEmpty) return null;
+    const marker = '/poll-media/';
+    final cleanUrl = url.split('?').first; // strip any cache-bust query params
+    final idx = cleanUrl.indexOf(marker);
+    if (idx < 0) return null;
+    return cleanUrl.substring(idx + marker.length);
+  }
+
+  /// Silently removes a file from the poll-media bucket. Non-fatal — if the
+  /// file is already gone or the path is invalid, the error is swallowed so
+  /// the caller's main operation isn't blocked.
+  Future<void> _deleteStorageFile(String? url) async {
+    final path = _storagePathFromUrl(url);
+    if (path == null || path.isEmpty) return;
+    try {
+      await _supabase.storage.from('poll-media').remove([path]);
+    } catch (_) {
+      // Best-effort; orphaned storage files are non-critical.
+    }
+  }
+
   /// Returns a storage-safe filename: keeps only [a-zA-Z0-9._-], replaces
   /// everything else (spaces, emojis, &, etc.) with underscores, and
   /// prepends a millisecond timestamp so each upload is unique (cache-bust).
@@ -195,7 +220,14 @@ class PollService {
     required String fileName,
     required String mediaType,
   }) async {
+    // Fetch old URL before deleting the row so we can clean up storage too.
+    final existing = await _supabase
+        .from('poll_media')
+        .select('media_url')
+        .eq('poll_id', pollId)
+        .maybeSingle();
     await _supabase.from('poll_media').delete().eq('poll_id', pollId);
+    await _deleteStorageFile(existing?['media_url']?.toString());
     await uploadPollMedia(
       userId: userId,
       pollId: pollId,
@@ -206,8 +238,6 @@ class PollService {
   }
 
   /// Replaces the media for a specific option identified by [optionId].
-  /// Re-uses [uploadOptionMedia]'s storage upsert; looks up option_order
-  /// from the DB to build the correct storage path.
   Future<void> replaceOptionMedia({
     required String userId,
     required String pollId,
@@ -216,6 +246,12 @@ class PollService {
     required String fileName,
     required String mediaType,
   }) async {
+    // Fetch old URL so we can clean up the storage file after upload.
+    final existing = await _supabase
+        .from('poll_options')
+        .select('media_url')
+        .eq('id', optionId)
+        .maybeSingle();
     final path = '$userId/$pollId/option-$optionId/${_safeFileName(fileName)}';
     final storage = _supabase.storage.from('poll-media');
     await storage.uploadBinary(
@@ -228,19 +264,35 @@ class PollService {
         .from('poll_options')
         .update({'media_url': mediaUrl, 'media_type': mediaType})
         .eq('id', optionId);
+    await _deleteStorageFile(existing?['media_url']?.toString());
   }
 
-  /// Removes the media for a specific option (clears media_url/media_type).
+  /// Removes the media for a specific option (clears media_url/media_type
+  /// in the DB and deletes the file from storage).
   Future<void> removeOptionMedia({required String optionId}) async {
+    final existing = await _supabase
+        .from('poll_options')
+        .select('media_url')
+        .eq('id', optionId)
+        .maybeSingle();
     await _supabase
         .from('poll_options')
         .update({'media_url': null, 'media_type': null})
         .eq('id', optionId);
+    await _deleteStorageFile(existing?['media_url']?.toString());
   }
 
-  /// Removes all poll-level attached media rows for [pollId].
+  /// Removes all poll-level attached media rows for [pollId] and deletes
+  /// the corresponding files from storage.
   Future<void> removePollMedia({required String pollId}) async {
+    final rows = await _supabase
+        .from('poll_media')
+        .select('media_url')
+        .eq('poll_id', pollId);
     await _supabase.from('poll_media').delete().eq('poll_id', pollId);
+    for (final row in rows) {
+      await _deleteStorageFile(row['media_url']?.toString());
+    }
   }
 
   /// Returns the total number of votes cast on [pollId].
