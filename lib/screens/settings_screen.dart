@@ -131,8 +131,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     if (!mounted) return;
-    navigator.popUntil((route) => route.isFirst);
     messenger.showSnackBar(const SnackBar(content: Text('Signed out')));
+    navigator.pushAndRemoveUntil(
+      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _openEditProfile() async {

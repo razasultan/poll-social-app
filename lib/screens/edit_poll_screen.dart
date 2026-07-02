@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../services/poll_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/video_preview.dart';
 
 /// Full-screen edit view for a poll the current user owns.
 /// Receives the poll map as returned by [PollService.getPollById].
@@ -846,6 +847,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
         isImage: _newOptionMediaType[i] == 'image',
         bytes: _newOptionMediaBytes[i],
         fileName: _newOptionMedia[i]?.name ?? '',
+        videoUrl: _newOptionMediaType[i] == 'video'
+            ? _newOptionMedia[i]?.path
+            : null,
         cs: cs,
         onReplace: () =>
             _showMediaPicker(onPick: (type) => _pickOptionMedia(i, type)),
@@ -894,6 +898,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
               isImage: _newPollMediaType == 'image',
               bytes: _newPollMediaBytes,
               fileName: _newPollMedia?.name ?? '',
+              videoUrl: _newPollMediaType == 'video'
+                  ? _newPollMedia?.path
+                  : null,
               cs: cs,
               onReplace: () =>
                   _showMediaPicker(onPick: (t) => _pickPollMedia(t)),
@@ -933,6 +940,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
     required bool isImage,
     required Uint8List? bytes,
     required String fileName,
+    required String? videoUrl,
     required ColorScheme cs,
     required VoidCallback onReplace,
     required VoidCallback onRemove,
@@ -950,8 +958,10 @@ class _EditPollScreenState extends State<EditPollScreen> {
               fit: BoxFit.cover,
             ),
           )
+        else if (videoUrl != null)
+          VideoPreview(url: videoUrl, height: 160)
         else
-          _videoPlaceholder(fileName, cs),
+          const SizedBox.shrink(),
         const SizedBox(height: 8),
         _mediaActions(cs: cs, onReplace: onReplace, onRemove: onRemove),
       ],
@@ -990,36 +1000,10 @@ class _EditPollScreenState extends State<EditPollScreen> {
             ),
           )
         else
-          _videoPlaceholder('Video attached', cs),
+          VideoPreview(url: url, height: 160),
         const SizedBox(height: 8),
         _mediaActions(cs: cs, onReplace: onReplace, onRemove: onRemove),
       ],
-    );
-  }
-
-  Widget _videoPlaceholder(String label, ColorScheme cs) {
-    return Container(
-      height: 64,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      alignment: Alignment.centerLeft,
-      child: Row(
-        children: [
-          Icon(Icons.videocam_outlined, size: 20, color: cs.onSurfaceVariant),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: cs.onSurfaceVariant),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

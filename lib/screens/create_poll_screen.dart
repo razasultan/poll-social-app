@@ -12,6 +12,7 @@ import '../services/auth_service.dart';
 import '../services/poll_service.dart';
 import '../services/search_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/video_preview.dart';
 import 'auth/login_screen.dart';
 import 'auth/signup_screen.dart';
 
@@ -847,29 +848,9 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
                       _optionMediaType[i] == 'video')
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
-                      child: Container(
-                        height: 56,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Theme.of(
-                            context,
-                          ).colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.videocam_outlined, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                _optionMedia[i]!.name,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
+                      child: VideoPreview(
+                        url: _optionMedia[i]!.path,
+                        height: 160,
                       ),
                     ),
                   if (_optionMedia[i] != null)
@@ -1127,28 +1108,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
               ),
             )
           else if (_pickedMedia != null && _pickedMediaType == 'video')
-            Container(
-              height: 80,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              alignment: Alignment.centerLeft,
-              child: Row(
-                children: [
-                  const Icon(Icons.videocam_outlined),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _pickedMedia!.name,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            VideoPreview(url: _pickedMedia!.path, height: 200),
           if (_pickedMedia != null) ...[
             const SizedBox(height: 8),
             Align(
