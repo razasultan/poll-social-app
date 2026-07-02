@@ -1,12 +1,18 @@
+import 'dart:js_interop';
 import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
 /// Flutter web implementation of [VideoPreview].
-/// Uses a native HTML <video> element via [HtmlElementView] so both
-/// blob: URLs (locally-picked files from image_picker on web) and
-/// https: Supabase Storage URLs work without any CORS or MIME restrictions.
+///
+/// Two design decisions:
+/// 1. No native `controls` — Flutter's canvas sits on top of [HtmlElementView]
+///    in canvaskit rendering, so browser-native controls never receive clicks
+///    inside modals or overlays. Instead a Flutter [GestureDetector] calls
+///    [HTMLVideoElement.play] / [HTMLVideoElement.pause] directly.
+/// 2. Static [_nowPlaying] [ValueNotifier] — when any instance starts playing
+///    it broadcasts its view-type ID so every other live instance pauses itself.
 class VideoPreview extends StatefulWidget {
   const VideoPreview({super.key, required this.url, this.height = 200});
 
@@ -18,49 +24,125 @@ class VideoPreview extends StatefulWidget {
 }
 
 class _VideoPreviewState extends State<VideoPreview> {
+  // Broadcasts the viewType of whichever video is currently playing.
+  // null means nothing is playing. Every active instance listens and pauses
+  // itself when a different viewType is announced.
+  static final ValueNotifier<String?> _nowPlaying = ValueNotifier(null);
+
   static int _nextId = 0;
 
   late String _viewType;
+  late web.HTMLVideoElement _video;
+  bool _playing = false;
 
   @override
   void initState() {
     super.initState();
     _register(widget.url);
+    _nowPlaying.addListener(_onNowPlayingChanged);
   }
 
   @override
   void didUpdateWidget(VideoPreview old) {
     super.didUpdateWidget(old);
     if (old.url != widget.url) {
-      // Each URL change needs a new factory registration — registrations
-      // are immutable once committed.
-      setState(() => _register(widget.url));
+      if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
+      _video.pause();
+      setState(() {
+        _playing = false;
+        _register(widget.url);
+      });
     }
   }
 
   void _register(String url) {
-    _viewType = 'poll-video-preview-${_nextId++}';
-    ui_web.platformViewRegistry.registerViewFactory(_viewType, (int id) {
-      final video = web.HTMLVideoElement();
-      video.src = url;
-      video.controls = true;
-      video.style.width = '100%';
-      video.style.height = '100%';
-      video.style.objectFit = 'cover';
-      video.style.setProperty('border-radius', '12px');
-      video.style.background = '#000';
-      return video;
-    });
+    _viewType = 'poll-video-${_nextId++}';
+    _video = web.HTMLVideoElement()
+      ..src = url
+      ..preload = 'metadata'
+      ..style.width = '100%'
+      ..style.height = '100%'
+      ..style.objectFit = 'cover'
+      ..style.background = '#000';
+
+    // Reset play button when the video finishes naturally.
+    _video.addEventListener(
+      'ended',
+      ((JSAny? _) {
+        if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
+        if (mounted) setState(() => _playing = false);
+      }).toJS,
+    );
+
+    ui_web.platformViewRegistry.registerViewFactory(
+      _viewType,
+      (int id) => _video,
+    );
+  }
+
+  void _onNowPlayingChanged() {
+    // Another video started — pause this one.
+    if (_nowPlaying.value != _viewType && _playing) {
+      _video.pause();
+      if (mounted) setState(() => _playing = false);
+    }
+  }
+
+  void _togglePlay() {
+    if (_playing) {
+      _video.pause();
+      if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
+      setState(() => _playing = false);
+    } else {
+      // Announce before playing so listeners pause immediately.
+      _nowPlaying.value = _viewType;
+      _video.play(); // JSPromise return is intentionally discarded.
+      setState(() => _playing = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nowPlaying.removeListener(_onNowPlayingChanged);
+    if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
+    _video.pause();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: SizedBox(
-        height: widget.height,
-        width: double.infinity,
-        child: HtmlElementView(viewType: _viewType),
+    return GestureDetector(
+      onTap: _togglePlay,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          height: widget.height,
+          width: double.infinity,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(child: HtmlElementView(viewType: _viewType)),
+              // Scrim + play button rendered by Flutter (always on top of
+              // the platform-view layer, receives taps via GestureDetector).
+              if (!_playing)
+                IgnorePointer(
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.55),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
