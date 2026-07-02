@@ -105,6 +105,12 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   Widget _buildGuestBottomBar(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    // Compute horizontal padding so the bar content aligns with the profile
+    // column above it. On narrow screens fall back to 20px inset.
+    final screenW = MediaQuery.sizeOf(context).width;
+    const maxW = PublicProfileScreen._maxWidth;
+    final hPad = screenW > maxW ? (screenW - maxW) / 2 : 20.0;
+
     return SafeArea(
       top: false,
       child: Container(
@@ -114,69 +120,57 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
             top: BorderSide(color: cs.primary.withValues(alpha: 0.3)),
           ),
         ),
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        // Align bar content with the profile column so the text starts at
-        // the same left edge as the avatar/bio above it.
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(
-              maxWidth: PublicProfileScreen._maxWidth,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
+        padding: EdgeInsets.fromLTRB(hPad, 12, hPad, 12),
+        child: Row(
+          children: [
+            BrandMark(size: 28, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  BrandMark(size: 28, color: Colors.white),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Have your say on everything',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'Vote on polls, follow creators, start debates.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Have your say on everything',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  OutlinedButton(
-                    onPressed: () => context.push('/login'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white),
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      visualDensity: VisualDensity.compact,
-                      shape: const StadiumBorder(),
+                  Text(
+                    'Vote on polls, follow creators, start debates.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.85),
                     ),
-                    child: const Text('Log in'),
-                  ),
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: () => context.push('/signup'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: cs.primary,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      visualDensity: VisualDensity.compact,
-                      shape: const StadiumBorder(),
-                    ),
-                    child: const Text('Sign up'),
                   ),
                 ],
               ),
             ),
-          ),
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => context.push('/login'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                visualDensity: VisualDensity.compact,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Log in'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () => context.push('/signup'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: cs.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                visualDensity: VisualDensity.compact,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Sign up'),
+            ),
+          ],
         ),
       ),
     );
