@@ -63,13 +63,20 @@ class _MainShellState extends State<MainShell> {
       // and navigate to LoginScreen after the current frame settles.
       if (data.event == AuthChangeEvent.signedOut) {
         VideoManager.pauseAll();
+        // Chain two addPostFrameCallback so navigation fires in the frame
+        // AFTER FeedScreen's own addPostFrameCallback (TabController swap +
+        // setState) has run and its rebuild has settled. A single callback
+        // fires too early — the rebuild is still queued, causing an
+        // OverlayPortal layout assertion from the tooltip in FeedScreen.
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-              (route) => false,
-            );
-          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                (route) => false,
+              );
+            }
+          });
         });
         return;
       }
