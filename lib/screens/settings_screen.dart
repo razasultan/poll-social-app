@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/branding.dart';
+import '../core/state/profile_notifier.dart';
 import '../services/auth_service.dart';
 import '../services/moderation_service.dart';
 import '../services/profile_service.dart';
@@ -159,6 +160,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onSaved: () {
               _snack('Profile updated');
               _loadProfile(uid);
+              // Notify all ProfileScreen instances for this user to reload
+              // so the new avatar/header appears immediately.
+              profileUpdateNotifier.value++;
             },
           ),
         );
@@ -815,18 +819,27 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
 
     try {
       if (_avatarBytes != null) {
+        final oldUrl = _avatarUrl;
         await widget.profileService.uploadAvatar(
           userId: widget.userId,
           bytes: _avatarBytes!,
           fileExtension: _avatarExt ?? 'jpg',
         );
+        // Evict old URL so any widget still rendering it fetches fresh.
+        if (oldUrl != null && oldUrl.isNotEmpty) {
+          imageCache.evict(NetworkImage(oldUrl));
+        }
       }
       if (_headerBytes != null) {
+        final oldUrl = _headerUrl;
         await widget.profileService.uploadHeader(
           userId: widget.userId,
           bytes: _headerBytes!,
           fileExtension: _headerExt ?? 'jpg',
         );
+        if (oldUrl != null && oldUrl.isNotEmpty) {
+          imageCache.evict(NetworkImage(oldUrl));
+        }
       }
 
       var website = _website.text.trim();

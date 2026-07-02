@@ -207,7 +207,10 @@ class ProfileService {
       bytes,
       fileOptions: const FileOptions(upsert: true),
     );
-    final url = storage.getPublicUrl(path);
+    // Cache-bust: append a timestamp so each upload produces a URL that
+    // Flutter's ImageCache (and the CDN) treats as a new resource.
+    final url =
+        '${storage.getPublicUrl(path)}?t=${DateTime.now().millisecondsSinceEpoch}';
 
     await updateProfile(userId: userId, avatarUrl: url);
     return url;
@@ -229,7 +232,8 @@ class ProfileService {
       bytes,
       fileOptions: const FileOptions(upsert: true),
     );
-    final url = storage.getPublicUrl(path);
+    final url =
+        '${storage.getPublicUrl(path)}?t=${DateTime.now().millisecondsSinceEpoch}';
 
     await updateProfile(userId: userId, headerUrl: url);
     return url;

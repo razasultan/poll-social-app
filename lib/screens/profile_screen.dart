@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../core/state/profile_notifier.dart';
 import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
@@ -120,6 +121,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     _tabController.addListener(_onTabChanged);
     _lastReloadToken = widget.reloadToken?.value;
     widget.reloadToken?.addListener(_onReloadTokenChanged);
+    if (_isOwnProfile) {
+      profileUpdateNotifier.addListener(_onProfileUpdated);
+    }
     _load();
   }
 
@@ -131,10 +135,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   void dispose() {
     widget.reloadToken?.removeListener(_onReloadTokenChanged);
+    if (_isOwnProfile) profileUpdateNotifier.removeListener(_onProfileUpdated);
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
+
+  void _onProfileUpdated() => _load();
 
   void _onReloadTokenChanged() {
     final value = widget.reloadToken?.value;
