@@ -46,6 +46,8 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   // Comment IDs liked by the current user (used to seed tile initial state).
   Set<String> _likedCommentIds = {};
   String? _busyCommentId;
+  // Incremented when the user votes via PollCard so PollResultChart reloads.
+  int _chartVersion = 0;
   // Non-null when the user is composing a reply.
   String? _replyingToCommentId; // the top-level comment id (parentCommentId)
   String? _replyingToUsername;
@@ -635,8 +637,12 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                     child: ListView(
                       padding: const EdgeInsets.only(bottom: 16),
                       children: [
-                        PollCard(poll: _poll!, showTrendingScore: false),
-                        PollResultChart(poll: _poll!),
+                        PollCard(
+                          poll: _poll!,
+                          showTrendingScore: false,
+                          onVoted: () => setState(() => _chartVersion++),
+                        ),
+                        PollResultChart(poll: _poll!, reloadKey: _chartVersion),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
                           child: Text(

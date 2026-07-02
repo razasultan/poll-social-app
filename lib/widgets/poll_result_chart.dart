@@ -51,9 +51,13 @@ List<PollChartEntry> buildPollChartEntries({
 /// placeholder until the viewer has voted or the poll has expired — matching
 /// the reveal rule used by the lightweight bars in the feed.
 class PollResultChart extends StatefulWidget {
-  const PollResultChart({super.key, required this.poll});
+  const PollResultChart({super.key, required this.poll, this.reloadKey = 0});
 
   final Map<String, dynamic> poll;
+
+  /// Increment to force a data reload without rebuilding the parent. Used by
+  /// [PollDetailScreen] after the user votes via the embedded [PollCard].
+  final int reloadKey;
 
   @override
   State<PollResultChart> createState() => _PollResultChartState();
@@ -103,6 +107,16 @@ class _PollResultChartState extends State<PollResultChart> {
   void initState() {
     super.initState();
     _load();
+  }
+
+  @override
+  void didUpdateWidget(PollResultChart old) {
+    super.didUpdateWidget(old);
+    if (old.reloadKey != widget.reloadKey) {
+      _selectedOptionId = null;
+      _optionVotes = const {};
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -301,7 +315,9 @@ class _PollBarChart extends StatelessWidget {
               x: i,
               barRods: [
                 BarChartRodData(
-                  toY: entries[i].percentage,
+                  // Show a minimum 2% stub for zero-vote options so they
+                  // remain visible and the option label is clearly anchored.
+                  toY: entries[i].percentage == 0 ? 2 : entries[i].percentage,
                   width: 28,
                   borderRadius: BorderRadius.circular(6),
                   color: entries[i].selected

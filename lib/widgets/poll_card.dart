@@ -40,6 +40,7 @@ class PollCard extends StatefulWidget {
     required this.poll,
     this.showTrendingScore = false,
     this.onPollTap,
+    this.onVoted,
   });
 
   final Map<String, dynamic> poll;
@@ -47,6 +48,10 @@ class PollCard extends StatefulWidget {
 
   /// Opens poll detail when set; header + question area only (vote/like stay interactive).
   final VoidCallback? onPollTap;
+
+  /// Called after a vote is successfully recorded (auth or anon). Used by
+  /// [PollDetailScreen] to reload the chart without a full-screen refresh.
+  final VoidCallback? onVoted;
 
   @override
   State<PollCard> createState() => _PollCardState();
@@ -284,7 +289,7 @@ class _PollCardState extends State<PollCard> {
       final id = o['id']?.toString();
       if (id != null) next.putIfAbsent(id, () => 0);
     }
-    _optionVotes = next;
+    if (mounted) setState(() => _optionVotes = next);
   }
 
   /// Visitors with no account can still vote on public polls - the
@@ -318,6 +323,7 @@ class _PollCardState extends State<PollCard> {
           if (!mounted) return;
           setState(() => _selectedOptionId = optionId);
           await _refreshVoteCounts();
+          widget.onVoted?.call();
         } on PostgrestException catch (e) {
           if (!mounted) return;
           final user = Supabase.instance.client.auth.currentUser;
@@ -356,7 +362,7 @@ class _PollCardState extends State<PollCard> {
       if (!mounted) return;
       setState(() => _selectedOptionId = optionId);
       await _refreshVoteCounts();
-      if (mounted) setState(() {});
+      widget.onVoted?.call();
     } on AlreadyVotedException {
       final anonSessionId = await AnonVoteSessionStore.instance.read();
       if (!mounted) return;
