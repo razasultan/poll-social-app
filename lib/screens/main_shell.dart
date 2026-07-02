@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/media/video_manager.dart';
-import '../core/state/poll_notifier.dart';
 import '../core/widgets/trending_rail.dart';
 import '../services/notification_service.dart';
 import '../services/profile_service.dart';
@@ -100,11 +99,6 @@ class _MainShellState extends State<MainShell> {
     final currentUser = Supabase.instance.client.auth.currentUser;
     _syncShellNotificationBadge(currentUser);
     if (currentUser != null) _ensureProfileExists(currentUser);
-    pollUpdateNotifier.addListener(_onPollUpdated);
-  }
-
-  void _onPollUpdated() {
-    _feedReloadToken.value++;
   }
 
   /// Fallback profile creation for users whose `profiles` row wasn't created
@@ -123,7 +117,6 @@ class _MainShellState extends State<MainShell> {
   void dispose() {
     _authSubscription?.cancel();
     _shellNotificationChannel?.unsubscribe();
-    pollUpdateNotifier.removeListener(_onPollUpdated);
     _feedReloadToken.dispose();
     _profileReloadToken.dispose();
     super.dispose();
