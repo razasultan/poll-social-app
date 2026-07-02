@@ -82,6 +82,19 @@ class PollService {
     await _supabase.from('poll_hashtags').insert(rows);
   }
 
+  /// Returns a storage-safe filename: keeps only [a-zA-Z0-9._-], replaces
+  /// everything else (spaces, emojis, &, etc.) with underscores, and
+  /// prepends a millisecond timestamp so each upload is unique (cache-bust).
+  static String _safeFileName(String fileName) {
+    final dotIndex = fileName.lastIndexOf('.');
+    final ext = dotIndex >= 0
+        ? fileName.substring(dotIndex + 1).toLowerCase()
+        : 'bin';
+    final base = dotIndex >= 0 ? fileName.substring(0, dotIndex) : fileName;
+    final safeBase = base.replaceAll(RegExp(r'[^\w\-]'), '_');
+    return '${DateTime.now().millisecondsSinceEpoch}_$safeBase.$ext';
+  }
+
   /// Uploads [bytes] to the `poll-media` storage bucket under the owning
   /// user's folder, then records a `poll_media` row pointing at the public URL.
   Future<void> uploadPollMedia({
@@ -91,7 +104,7 @@ class PollService {
     required String fileName,
     required String mediaType,
   }) async {
-    final path = '$userId/$pollId/$fileName';
+    final path = '$userId/$pollId/${_safeFileName(fileName)}';
     final storage = _supabase.storage.from('poll-media');
     await storage.uploadBinary(
       path,
@@ -128,7 +141,7 @@ class PollService {
     final optionId = option?['id']?.toString();
     if (optionId == null) return;
 
-    final path = '$userId/$pollId/option-$optionId/$fileName';
+    final path = '$userId/$pollId/option-$optionId/${_safeFileName(fileName)}';
     final storage = _supabase.storage.from('poll-media');
     await storage.uploadBinary(
       path,
@@ -203,7 +216,7 @@ class PollService {
     required String fileName,
     required String mediaType,
   }) async {
-    final path = '$userId/$pollId/option-$optionId/$fileName';
+    final path = '$userId/$pollId/option-$optionId/${_safeFileName(fileName)}';
     final storage = _supabase.storage.from('poll-media');
     await storage.uploadBinary(
       path,
