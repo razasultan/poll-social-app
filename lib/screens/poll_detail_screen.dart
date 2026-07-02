@@ -576,7 +576,8 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
               if (value == 'embed') _copyEmbedCode();
             },
             itemBuilder: (context) {
-              final isOwner = currentUserId != null &&
+              final isOwner =
+                  currentUserId != null &&
                   _poll?['user_id']?.toString() == currentUserId;
               return [
                 if (isOwner) ...[
@@ -694,8 +695,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                                 currentUserId: currentUserId,
                                 initialLikesCount:
                                     (c['likes_count'] as num?)?.toInt() ?? 0,
-                                initialIsLiked:
-                                    _likedCommentIds.contains(cid),
+                                initialIsLiked: _likedCommentIds.contains(cid),
                                 onEdit: isOwner
                                     ? () => _promptEditComment(c)
                                     : null,
@@ -1031,8 +1031,10 @@ class _CommentTileState extends State<_CommentTile> {
   void didUpdateWidget(_CommentTile old) {
     super.didUpdateWidget(old);
     // Sync if the parent reloads data (e.g. after a refresh).
-    if (old.initialIsLiked != widget.initialIsLiked) _liked = widget.initialIsLiked;
-    if (old.initialLikesCount != widget.initialLikesCount) _likesCount = widget.initialLikesCount;
+    if (old.initialIsLiked != widget.initialIsLiked)
+      _liked = widget.initialIsLiked;
+    if (old.initialLikesCount != widget.initialLikesCount)
+      _likesCount = widget.initialLikesCount;
   }
 
   Future<void> _toggleLike() async {
@@ -1081,7 +1083,11 @@ class _CommentTileState extends State<_CommentTile> {
             _liked = !_liked;
             _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
           });
-          AppToast.error(context, 'Network error. Try again.', extraBottomOffset: 64);
+          AppToast.error(
+            context,
+            'Network error. Try again.',
+            extraBottomOffset: 64,
+          );
         } finally {
           if (mounted) setState(() => _liking = false);
         }
@@ -1110,7 +1116,9 @@ class _CommentTileState extends State<_CommentTile> {
     final replyToUsername =
         (widget.comment['reply_to_profile'] as Map?)?['username']?.toString();
     final rawText = widget.comment['comment_text']?.toString() ?? '';
-    final text = replyToUsername != null ? '@$replyToUsername $rawText' : rawText;
+    final text = replyToUsername != null
+        ? '@$replyToUsername $rawText'
+        : rawText;
     final uid = widget.commentUserId.trim();
 
     final avatar = CircleAvatar(

@@ -76,22 +76,27 @@ class _EditPollScreenState extends State<EditPollScreen> {
     _visibility = poll['visibility']?.toString() ?? 'public';
 
     final rawExpiry = poll['expires_at'];
-    _expiresAt =
-        rawExpiry != null ? DateTime.tryParse(rawExpiry.toString()) : null;
+    _expiresAt = rawExpiry != null
+        ? DateTime.tryParse(rawExpiry.toString())
+        : null;
 
-    final rawOptions = (poll['poll_options'] as List? ?? [])
-        .whereType<Map>()
-        .map((o) => Map<String, dynamic>.from(o))
-        .toList()
-      ..sort(
-        (a, b) => ((a['option_order'] as num?) ?? 0).compareTo(
-          (b['option_order'] as num?) ?? 0,
-        ),
-      );
+    final rawOptions =
+        (poll['poll_options'] as List? ?? [])
+            .whereType<Map>()
+            .map((o) => Map<String, dynamic>.from(o))
+            .toList()
+          ..sort(
+            (a, b) => ((a['option_order'] as num?) ?? 0).compareTo(
+              (b['option_order'] as num?) ?? 0,
+            ),
+          );
 
     _options = rawOptions;
     _optionCtrls = _options
-        .map((o) => TextEditingController(text: o['option_text']?.toString() ?? ''))
+        .map(
+          (o) =>
+              TextEditingController(text: o['option_text']?.toString() ?? ''),
+        )
         .toList();
 
     _newOptionMedia = List.filled(_options.length, null);
@@ -99,8 +104,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
     _newOptionMediaType = List.filled(_options.length, null);
     _clearOptionMedia = List.filled(_options.length, false);
 
-    final mediaCandidates =
-        (poll['poll_media'] as List? ?? []).whereType<Map>().toList();
+    final mediaCandidates = (poll['poll_media'] as List? ?? [])
+        .whereType<Map>()
+        .toList();
     if (mediaCandidates.isNotEmpty) {
       _existingPollMediaUrl = mediaCandidates.first['media_url']?.toString();
       _existingPollMediaType = mediaCandidates.first['media_type']?.toString();
@@ -161,8 +167,13 @@ class _EditPollScreenState extends State<EditPollScreen> {
     if (time == null || !mounted) return;
 
     setState(() {
-      _expiresAt =
-          DateTime(date.year, date.month, date.day, time.hour, time.minute);
+      _expiresAt = DateTime(
+        date.year,
+        date.month,
+        date.day,
+        time.hour,
+        time.minute,
+      );
     });
   }
 
@@ -218,16 +229,17 @@ class _EditPollScreenState extends State<EditPollScreen> {
               padding: const EdgeInsets.only(bottom: 8),
               child: Text(
                 'Replace media',
-                style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
+                style: Theme.of(
+                  ctx,
+                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
             ),
             ListTile(
               leading: const Icon(Icons.image_outlined),
               title: const Text('Choose photo'),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 onPick('image');
@@ -237,7 +249,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
               leading: const Icon(Icons.videocam_outlined),
               title: const Text('Choose video'),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
               onTap: () {
                 Navigator.pop(ctx);
                 onPick('video');
@@ -440,8 +453,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
           child: FilledButton(
             onPressed: _saving ? null : _save,
             style: FilledButton.styleFrom(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
               shape: const StadiumBorder(),
             ),
             child: _saving
@@ -473,11 +485,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
     );
   }
 
-  Widget _sectionLabel(
-    String label, {
-    IconData? icon,
-    Color? color,
-  }) {
+  Widget _sectionLabel(String label, {IconData? icon, Color? color}) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final c = color ?? cs.primary;
@@ -575,8 +583,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
           const SizedBox(height: 16),
           Text(
             'Who can see this poll?',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 8),
           SegmentedButton<String>(
@@ -589,11 +598,13 @@ class _EditPollScreenState extends State<EditPollScreen> {
                 ),
             ],
             selected: {_visibility},
-            onSelectionChanged:
-                _saving ? null : (s) => setState(() => _visibility = s.first),
+            onSelectionChanged: _saving
+                ? null
+                : (s) => setState(() => _visibility = s.first),
             style: SegmentedButton.styleFrom(
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -601,8 +612,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
           const SizedBox(height: 16),
           Text(
             'Voting closes',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 8),
           Row(
@@ -637,8 +649,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
                     color: cs.onSurfaceVariant,
                   ),
                   tooltip: 'Remove expiry',
-                  onPressed:
-                      _saving ? null : () => setState(() => _expiresAt = null),
+                  onPressed: _saving
+                      ? null
+                      : () => setState(() => _expiresAt = null),
                 ),
             ],
           ),
@@ -683,8 +696,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
             const SizedBox(height: 10),
             Text(
               'Option text is locked once votes are cast. You can still replace or add media.',
-              style: theme.textTheme.bodySmall
-                  ?.copyWith(color: cs.onSurfaceVariant),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
           ],
           const SizedBox(height: 16),
@@ -734,7 +748,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
     final badgeFg = locked ? cs.onTertiaryContainer : cs.onPrimaryContainer;
 
     final hasNew = _newOptionMediaBytes[i] != null;
-    final hasExisting = !_clearOptionMedia[i] &&
+    final hasExisting =
+        !_clearOptionMedia[i] &&
         !hasNew &&
         (option['media_url']?.toString().isNotEmpty == true);
 
@@ -776,7 +791,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
                   decoration: InputDecoration(
                     hintText: 'Option ${i + 1}',
                     border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(color: cs.outlineVariant),
@@ -784,14 +800,17 @@ class _EditPollScreenState extends State<EditPollScreen> {
                     disabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide(
-                          color: cs.outlineVariant.withValues(alpha: 0.4)),
+                        color: cs.outlineVariant.withValues(alpha: 0.4),
+                      ),
                     ),
                     filled: true,
                     fillColor: locked
                         ? cs.surfaceContainerHighest.withValues(alpha: 0.4)
                         : null,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
                     isDense: true,
                   ),
                 ),
@@ -828,9 +847,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
         bytes: _newOptionMediaBytes[i],
         fileName: _newOptionMedia[i]?.name ?? '',
         cs: cs,
-        onReplace: () => _showMediaPicker(
-          onPick: (type) => _pickOptionMedia(i, type),
-        ),
+        onReplace: () =>
+            _showMediaPicker(onPick: (type) => _pickOptionMedia(i, type)),
         onRemove: () => setState(() {
           _newOptionMedia[i] = null;
           _newOptionMediaBytes[i] = null;
@@ -844,9 +862,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
         mediaType: existingType ?? 'image',
         cs: cs,
         theme: theme,
-        onReplace: () => _showMediaPicker(
-          onPick: (type) => _pickOptionMedia(i, type),
-        ),
+        onReplace: () =>
+            _showMediaPicker(onPick: (type) => _pickOptionMedia(i, type)),
         onRemove: () => setState(() => _clearOptionMedia[i] = true),
       );
     }
@@ -861,7 +878,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
 
   Widget _buildPollMediaCard(ColorScheme cs, ThemeData theme) {
     final hasNew = _newPollMediaBytes != null;
-    final hasExisting = !_clearPollMedia &&
+    final hasExisting =
+        !_clearPollMedia &&
         !hasNew &&
         (_existingPollMediaUrl?.isNotEmpty == true);
 
@@ -1043,7 +1061,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),
@@ -1056,7 +1075,8 @@ class _EditPollScreenState extends State<EditPollScreen> {
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 10),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),
@@ -1085,8 +1105,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
           const SizedBox(height: 12),
           Text(
             'Permanently deletes this poll, all its votes, and all comments. There is no undo.',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: cs.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
           ),
           const SizedBox(height: 14),
           SizedBox(

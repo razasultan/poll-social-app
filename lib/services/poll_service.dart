@@ -151,12 +151,15 @@ class PollService {
     DateTime? expiresAt,
     bool clearExpiry = false,
   }) async {
-    await _supabase.from('polls').update({
-      'question': question,
-      'description': description?.isEmpty == true ? null : description,
-      'visibility': visibility,
-      'expires_at': clearExpiry ? null : expiresAt?.toIso8601String(),
-    }).eq('id', pollId);
+    await _supabase
+        .from('polls')
+        .update({
+          'question': question,
+          'description': description?.isEmpty == true ? null : description,
+          'visibility': visibility,
+          'expires_at': clearExpiry ? null : expiresAt?.toIso8601String(),
+        })
+        .eq('id', pollId);
   }
 
   Future<void> updatePollOptionText({
