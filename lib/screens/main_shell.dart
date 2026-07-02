@@ -59,16 +59,8 @@ class _MainShellState extends State<MainShell> {
     _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
       data,
     ) {
-      final user = data.session?.user;
-      _syncShellNotificationBadge(user);
-      if (user != null) _ensureProfileExists(user);
-      final itemCount = user == null ? 4 : 5;
-      if (_selectedIndex >= itemCount && mounted) {
-        setState(() => _selectedIndex = 0);
-      }
-      // Navigate to login after sign-out. Use addPostFrameCallback to avoid
-      // calling pushAndRemoveUntil while setState is still in flight from
-      // settings_screen's signOut handler, which would cause an exception.
+      // On sign-out: skip all setState work (widget tree is being replaced)
+      // and navigate to LoginScreen after the current frame settles.
       if (data.event == AuthChangeEvent.signedOut) {
         VideoManager.pauseAll();
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -79,6 +71,14 @@ class _MainShellState extends State<MainShell> {
             );
           }
         });
+        return;
+      }
+      final user = data.session?.user;
+      _syncShellNotificationBadge(user);
+      if (user != null) _ensureProfileExists(user);
+      final itemCount = user == null ? 4 : 5;
+      if (_selectedIndex >= itemCount && mounted) {
+        setState(() => _selectedIndex = 0);
       }
     });
     final currentUser = Supabase.instance.client.auth.currentUser;

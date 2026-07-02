@@ -32,8 +32,7 @@ class FeedScreen extends StatefulWidget {
   State<FeedScreen> createState() => _FeedScreenState();
 }
 
-class _FeedScreenState extends State<FeedScreen>
-    with SingleTickerProviderStateMixin {
+class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
   late TabController _tabController;
   late final FeedService _feedService;
   late final NotificationService _notificationService;
@@ -58,12 +57,17 @@ class _FeedScreenState extends State<FeedScreen>
       final user = data.session?.user;
       _syncNotificationBadge(user);
       final isGuestNow = user == null;
-      if (isGuestNow != _isGuest) {
-        final oldController = _tabController;
-        oldController.dispose();
-        setState(() {
-          _isGuest = isGuestNow;
-          _tabController = TabController(length: _tabCount, vsync: this);
+      if (isGuestNow != _isGuest && mounted) {
+        // Defer controller swap to avoid disposing mid-frame, which causes
+        // "Controller length mismatch" and ticker assertion errors.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final oldController = _tabController;
+          setState(() {
+            _isGuest = isGuestNow;
+            _tabController = TabController(length: _tabCount, vsync: this);
+          });
+          oldController.dispose();
         });
       }
       widget.feedReloadToken?.value++;
