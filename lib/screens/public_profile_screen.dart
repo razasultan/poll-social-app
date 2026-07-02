@@ -6,13 +6,11 @@ import '../core/constants/branding.dart';
 import '../core/widgets/brand_mark.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
-import '../services/social_service.dart';
 import '../widgets/poll_card.dart';
 
 /// Public-facing profile page at `/u/:username`.
 ///
-/// Layout: pinned app-bar → header image with avatar straddling the fold
-/// (bottom-right placement) → name/bio → 3-column stat strip → poll list.
+/// Accessible without auth. Content is constrained to a readable column width.
 /// Unauthenticated visitors see a sticky bottom bar prompting them to join.
 class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({super.key, required this.username});
@@ -28,14 +26,11 @@ class PublicProfileScreen extends StatefulWidget {
 class _PublicProfileScreenState extends State<PublicProfileScreen> {
   final ProfileService _profileService = ProfileService();
   final FeedService _feedService = FeedService();
-  final SocialService _socialService = SocialService();
 
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _profile;
   List<Map<String, dynamic>> _polls = [];
-  int _followersCount = 0;
-  int _totalVotes = 0;
 
   bool get _isGuest => Supabase.instance.client.auth.currentUser == null;
 
@@ -64,41 +59,15 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       }
 
       final userId = profile['id']?.toString() ?? '';
-
-      final results = await Future.wait([
-        if (userId.isNotEmpty)
-          _feedService.getPollsForUser(userId, publicOnly: true)
-        else
-          Future.value(<dynamic>[]),
-        if (userId.isNotEmpty)
-          _socialService.getFollowersCount(userId)
-        else
-          Future.value(0),
-      ]);
+      final rawPolls = userId.isNotEmpty
+          ? await _feedService.getPollsForUser(userId, publicOnly: true)
+          : <dynamic>[];
+      final polls = rawPolls.whereType<Map<String, dynamic>>().toList();
 
       if (!mounted) return;
-
-      final rawPolls = results[0] as List<dynamic>;
-      final polls = rawPolls.whereType<Map<String, dynamic>>().toList();
-      final followersCount = results[1] as int;
-
-      int totalVotes = 0;
-      for (final p in polls) {
-        final analytics = p['poll_analytics'];
-        final a = analytics is Map
-            ? analytics
-            : (analytics is List && analytics.isNotEmpty
-                  ? analytics.first as Map?
-                  : null);
-        final v = a?['votes_count'];
-        totalVotes += (v is num ? v.toInt() : int.tryParse('$v') ?? 0);
-      }
-
       setState(() {
         _profile = profile;
         _polls = polls;
-        _followersCount = followersCount;
-        _totalVotes = totalVotes;
         _loading = false;
       });
     } catch (_) {
@@ -115,15 +84,6 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     context.go(userId != null ? '/home/user/$userId' : '/home');
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  /// Formats large numbers: 1234 → "1.2K", 1234567 → "1.2M".
-  static String _fmt(int n) {
-    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
-    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
-    return '$n';
-  }
-
   Widget _constrained(Widget child) => Center(
     child: ConstrainedBox(
       constraints: const BoxConstraints(
@@ -133,7 +93,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     ),
   );
 
-  // ── App bar ───────────────────────────────────────────────────────────────
+  // ── App bar ──────────────────────────────────────────────────────────────
 
   Widget _buildAppBar() {
     return SliverAppBar(
@@ -150,7 +110,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 
-  // ── Guest bottom bar ──────────────────────────────────────────────────────
+  // ── Guest bottom bar ─────────────────────────────────────────────────────
 
   Widget _buildGuestBottomBar(BuildContext context) {
     final theme = Theme.of(context);
@@ -277,11 +237,41 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               ),
             )
           else ...[
-            SliverToBoxAdapter(child: _buildProfileHeader(theme, cs)),
-            SliverToBoxAdapter(child: _buildStatsStrip(theme, cs)),
-            SliverToBoxAdapter(child: _buildPollsEyebrow(theme, cs)),
+            // ── Profile header (image, avatar, name, bio) ────────────────
+            SliverToBoxAdapter(child: _buildHeader(theme, cs)),
+
+            // ── Polls label ───────────────────────────────────────────────
+            SliverToBoxAdapter(
+              child: _constrained(
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+                  child: Text(
+                    'Polls',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ── Poll cards — SliverList matches authenticated profile ──────
             if (_polls.isEmpty)
-              SliverToBoxAdapter(child: _buildEmptyPolls(theme, cs))
+              SliverToBoxAdapter(
+                child: _constrained(
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No public polls yet.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              )
             else
               SliverList(
                 delegate: SliverChildBuilderDelegate(
@@ -289,24 +279,26 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     PollCard(
                       poll: _polls[i],
                       onPollTap: () {
-                        final id = _polls[i]['id']?.toString();
-                        if (id != null) context.go('/home/poll/$id');
+                        final pollId = _polls[i]['id']?.toString();
+                        if (pollId == null) return;
+                        context.go('/home/poll/$pollId');
                       },
                     ),
                   ),
                   childCount: _polls.length,
                 ),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 48)),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 32)),
           ],
         ],
       ),
     );
   }
 
-  // ── Profile header ────────────────────────────────────────────────────────
+  // ── Profile header widget ─────────────────────────────────────────────────
 
-  Widget _buildProfileHeader(ThemeData theme, ColorScheme cs) {
+  Widget _buildHeader(ThemeData theme, ColorScheme cs) {
     final profile = _profile!;
     final displayName = profile['display_name']?.toString() ?? '';
     final username = profile['username']?.toString() ?? '';
@@ -318,279 +310,91 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         ? nameOrUsername[0].toUpperCase()
         : '?';
 
-    const avatarRadius = 44.0;
-    const avatarBorder = 3.0;
-    const avatarTotal = avatarRadius + avatarBorder;
-
-    Widget avatar = CircleAvatar(
-      radius: avatarRadius,
-      backgroundColor: cs.primaryContainer,
-      backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-          ? NetworkImage(avatarUrl)
-          : null,
-      child: avatarUrl == null || avatarUrl.isEmpty
-          ? Text(
-              initials,
-              style: theme.textTheme.headlineSmall?.copyWith(
-                color: cs.onPrimaryContainer,
-                fontWeight: FontWeight.w800,
-              ),
-            )
-          : null,
-    );
-
-    // White/surface border ring around avatar — separates it from both
-    // the header image above and the page background below.
-    avatar = Container(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: cs.surface, width: avatarBorder),
-      ),
-      child: avatar,
-    );
-
-    final hasHeader = headerUrl != null && headerUrl.isNotEmpty;
-
     return _constrained(
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header image with avatar straddling the fold (bottom-right) ──
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Header image or gradient placeholder
-              ClipRRect(
-                borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(4),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3,
-                  child: hasHeader
-                      ? Image.network(
-                          headerUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (ctx, e, st) =>
-                              _buildHeaderGradient(cs),
-                        )
-                      : _buildHeaderGradient(cs),
+          // Header image
+          if (headerUrl != null && headerUrl.isNotEmpty)
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                bottom: Radius.circular(16),
+              ),
+              child: AspectRatio(
+                aspectRatio: 3,
+                child: Image.network(
+                  headerUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, e) => const SizedBox.shrink(),
                 ),
               ),
+            ),
 
-              // Avatar — bottom-right, straddling the header fold.
-              // The distinctive placement (right side instead of the
-              // Twitter convention of left) keeps the name block clean.
-              Positioned(bottom: -avatarTotal, right: 20, child: avatar),
-
-              // Open-in-app for authenticated users
-              if (!_isGuest)
-                Positioned(
-                  top: 10,
-                  right: 10,
-                  child: FilledButton.tonal(
-                    onPressed: _openInApp,
-                    style: FilledButton.styleFrom(
-                      visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.open_in_new_rounded, size: 14),
-                        SizedBox(width: 6),
-                        Text('Open in app'),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          // Space for the overlapping avatar
-          SizedBox(height: avatarTotal + 12),
-
-          // ── Name + username ───────────────────────────────────────────────
+          // Avatar + name
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (displayName.isNotEmpty)
-                  Text(
-                    displayName,
-                    style: theme.textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                      height: 1.1,
-                    ),
-                  ),
-                const SizedBox(height: 2),
-                Text(
-                  '@$username',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
+                CircleAvatar(
+                  radius: 36,
+                  backgroundColor: cs.primaryContainer,
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(
+                          initials,
+                          style: theme.textTheme.headlineMedium?.copyWith(
+                            color: cs.onPrimaryContainer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (displayName.isNotEmpty)
+                        Text(
+                          displayName,
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      Text(
+                        '@$username',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                if (bio.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    bio,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.5),
+                if (!_isGuest)
+                  TextButton.icon(
+                    onPressed: _openInApp,
+                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                    label: const Text('Open in app'),
                   ),
-                ],
               ],
             ),
           ),
 
-          const SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  /// Subtle primary-tinted gradient used when no header image is set.
-  Widget _buildHeaderGradient(ColorScheme cs) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            cs.primary.withValues(alpha: 0.15),
-            cs.primary.withValues(alpha: 0.05),
-          ],
-        ),
-      ),
-      child: const SizedBox.expand(),
-    );
-  }
-
-  // ── Stat strip ────────────────────────────────────────────────────────────
-
-  Widget _buildStatsStrip(ThemeData theme, ColorScheme cs) {
-    return _constrained(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Divider(height: 1, color: cs.outlineVariant),
-          IntrinsicHeight(
-            child: Row(
-              children: [
-                _StatCell(
-                  theme: theme,
-                  cs: cs,
-                  value: _fmt(_polls.length),
-                  label: 'POLLS',
-                ),
-                VerticalDivider(width: 1, color: cs.outlineVariant),
-                _StatCell(
-                  theme: theme,
-                  cs: cs,
-                  value: _fmt(_totalVotes),
-                  label: 'VOTES',
-                ),
-                VerticalDivider(width: 1, color: cs.outlineVariant),
-                _StatCell(
-                  theme: theme,
-                  cs: cs,
-                  value: _fmt(_followersCount),
-                  label: 'FOLLOWERS',
-                ),
-              ],
+          // Bio
+          if (bio.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: Text(bio, style: theme.textTheme.bodyMedium),
             ),
+
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Divider(),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          const SizedBox(height: 24),
         ],
-      ),
-    );
-  }
-
-  // ── Polls eyebrow ─────────────────────────────────────────────────────────
-
-  Widget _buildPollsEyebrow(ThemeData theme, ColorScheme cs) {
-    return _constrained(
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-        child: Row(
-          children: [
-            Text(
-              'POLLS',
-              style: theme.textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.5,
-                color: cs.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(child: Divider(color: cs.outlineVariant)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyPolls(ThemeData theme, ColorScheme cs) {
-    return _constrained(
-      Padding(
-        padding: const EdgeInsets.all(32),
-        child: Center(
-          child: Text(
-            'No public polls yet.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Stat cell ──────────────────────────────────────────────────────────────
-
-class _StatCell extends StatelessWidget {
-  const _StatCell({
-    required this.theme,
-    required this.cs,
-    required this.value,
-    required this.label,
-  });
-
-  final ThemeData theme;
-  final ColorScheme cs;
-  final String value;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              value,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.5,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: cs.onSurfaceVariant,
-                letterSpacing: 1.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
