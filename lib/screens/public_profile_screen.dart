@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/branding.dart';
 import '../core/widgets/brand_mark.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
+import '../services/social_service.dart';
 import '../widgets/poll_card.dart';
 
 /// Public-facing profile page at `/u/:username`.
 ///
-/// Accessible without auth. Content is constrained to a readable column width.
-/// Unauthenticated visitors see a sticky bottom bar prompting them to join.
+/// The profile header intentionally mirrors the authenticated [ProfileScreen]
+/// header — same heights, avatar positioning, border treatment, meta chips,
+/// and stat row — so the two views feel like the same product.
 class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({super.key, required this.username});
 
@@ -26,11 +29,14 @@ class PublicProfileScreen extends StatefulWidget {
 class _PublicProfileScreenState extends State<PublicProfileScreen> {
   final ProfileService _profileService = ProfileService();
   final FeedService _feedService = FeedService();
+  final SocialService _socialService = SocialService();
 
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _profile;
   List<Map<String, dynamic>> _polls = [];
+  int _followersCount = 0;
+  int _followingCount = 0;
 
   bool get _isGuest => Supabase.instance.client.auth.currentUser == null;
 
@@ -59,15 +65,32 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       }
 
       final userId = profile['id']?.toString() ?? '';
-      final rawPolls = userId.isNotEmpty
-          ? await _feedService.getPollsForUser(userId, publicOnly: true)
-          : <dynamic>[];
-      final polls = rawPolls.whereType<Map<String, dynamic>>().toList();
+      final results = await Future.wait([
+        if (userId.isNotEmpty)
+          _feedService.getPollsForUser(userId, publicOnly: true)
+        else
+          Future.value(<dynamic>[]),
+        if (userId.isNotEmpty)
+          _socialService.getFollowersCount(userId)
+        else
+          Future.value(0),
+        if (userId.isNotEmpty)
+          _socialService.getFollowingCount(userId)
+        else
+          Future.value(0),
+      ]);
 
       if (!mounted) return;
+
+      final polls = (results[0] as List<dynamic>)
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
       setState(() {
         _profile = profile;
         _polls = polls;
+        _followersCount = results[1] as int;
+        _followingCount = results[2] as int;
         _loading = false;
       });
     } catch (_) {
@@ -93,7 +116,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     ),
   );
 
-  // ── App bar ──────────────────────────────────────────────────────────────
+  // ── App bar ───────────────────────────────────────────────────────────────
 
   Widget _buildAppBar() {
     return SliverAppBar(
@@ -110,7 +133,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     );
   }
 
-  // ── Guest bottom bar ─────────────────────────────────────────────────────
+  // ── Guest bottom bar ──────────────────────────────────────────────────────
 
   Widget _buildGuestBottomBar(BuildContext context) {
     final theme = Theme.of(context);
@@ -237,30 +260,14 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
               ),
             )
           else ...[
-            // ── Profile header (image, avatar, name, bio) ────────────────
             SliverToBoxAdapter(child: _buildHeader(theme, cs)),
-
-            // ── Polls label ───────────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: _constrained(
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
-                  child: Text(
-                    'Polls',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-
-            // ── Poll cards — SliverList matches authenticated profile ──────
+            SliverToBoxAdapter(child: _constrained(const Divider(height: 1))),
+            SliverToBoxAdapter(child: _buildPollsLabel(theme, cs)),
             if (_polls.isEmpty)
               SliverToBoxAdapter(
                 child: _constrained(
                   Padding(
-                    padding: const EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(32),
                     child: Center(
                       child: Text(
                         'No public polls yet.',
@@ -279,122 +286,393 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     PollCard(
                       poll: _polls[i],
                       onPollTap: () {
-                        final pollId = _polls[i]['id']?.toString();
-                        if (pollId == null) return;
-                        context.go('/home/poll/$pollId');
+                        final id = _polls[i]['id']?.toString();
+                        if (id != null) context.go('/home/poll/$id');
                       },
                     ),
                   ),
                   childCount: _polls.length,
                 ),
               ),
-
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
+            const SliverToBoxAdapter(child: SizedBox(height: 48)),
           ],
         ],
       ),
     );
   }
 
-  // ── Profile header widget ─────────────────────────────────────────────────
+  // ── Profile header — mirrors _ProfileHeader in profile_screen.dart ────────
 
   Widget _buildHeader(ThemeData theme, ColorScheme cs) {
     final profile = _profile!;
-    final displayName = profile['display_name']?.toString() ?? '';
     final username = profile['username']?.toString() ?? '';
+    final displayName = profile['display_name']?.toString() ?? '';
     final bio = profile['bio']?.toString() ?? '';
     final avatarUrl = profile['avatar_url']?.toString();
     final headerUrl = profile['header_url']?.toString();
-    final nameOrUsername = displayName.isNotEmpty ? displayName : username;
-    final initials = nameOrUsername.isNotEmpty
-        ? nameOrUsername[0].toUpperCase()
-        : '?';
+    final website = profile['website']?.toString().trim() ?? '';
+    final location = [profile['city'], profile['country']]
+        .map((v) => v?.toString().trim() ?? '')
+        .where((v) => v.isNotEmpty)
+        .join(', ');
+    final joined = _joinedLabel(profile['created_at']);
+    const avatarRadius = 38.0;
 
     return _constrained(
       Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header image
-          if (headerUrl != null && headerUrl.isNotEmpty)
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                bottom: Radius.circular(16),
-              ),
-              child: AspectRatio(
-                aspectRatio: 3,
-                child: Image.network(
-                  headerUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (ctx, err, e) => const SizedBox.shrink(),
-                ),
-              ),
-            ),
-
-          // Avatar + name
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CircleAvatar(
-                  radius: 36,
-                  backgroundColor: cs.primaryContainer,
-                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                      ? NetworkImage(avatarUrl)
-                      : null,
-                  child: avatarUrl == null || avatarUrl.isEmpty
-                      ? Text(
-                          initials,
-                          style: theme.textTheme.headlineMedium?.copyWith(
-                            color: cs.onPrimaryContainer,
-                            fontWeight: FontWeight.w700,
+          // Cover banner + overlapping avatar — identical to ProfileScreen
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRect(
+                child: SizedBox(
+                  height: 120,
+                  width: double.infinity,
+                  child: headerUrl != null && headerUrl.isNotEmpty
+                      ? Image.network(headerUrl, fit: BoxFit.cover)
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                cs.primary.withValues(alpha: 0.65),
+                                cs.primary.withValues(alpha: 0.22),
+                              ],
+                            ),
                           ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (displayName.isNotEmpty)
-                        Text(
-                          displayName,
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
+                          child: Stack(
+                            children: [
+                              Positioned(
+                                right: -36,
+                                top: -44,
+                                child: _GhostCircle(
+                                  size: 140,
+                                  color: Colors.white.withValues(alpha: 0.10),
+                                ),
+                              ),
+                              Positioned(
+                                right: 60,
+                                bottom: -50,
+                                child: _GhostCircle(
+                                  size: 90,
+                                  color: const Color(
+                                    0xFFF91880,
+                                  ).withValues(alpha: 0.16),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      Text(
-                        '@$username',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+                ),
+              ),
+              // Avatar — bottom-left, matching authenticated profile exactly
+              Positioned(
+                left: 20,
+                bottom: -avatarRadius,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: cs.surface,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
                     ],
                   ),
-                ),
-                if (!_isGuest)
-                  TextButton.icon(
-                    onPressed: _openInApp,
-                    icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                    label: const Text('Open in app'),
+                  child: CircleAvatar(
+                    radius: avatarRadius,
+                    backgroundColor: cs.primaryContainer,
+                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                        ? NetworkImage(avatarUrl)
+                        : null,
+                    child: avatarUrl == null || avatarUrl.isEmpty
+                        ? Text(
+                            username.isNotEmpty
+                                ? username[0].toUpperCase()
+                                : '?',
+                            style: TextStyle(
+                              fontSize: 30,
+                              fontWeight: FontWeight.w700,
+                              color: cs.onPrimaryContainer,
+                            ),
+                          )
+                        : null,
                   ),
+                ),
+              ),
+              // Open in app — authenticated users (same slot as Follow button)
+              if (!_isGuest)
+                Positioned(
+                  right: 16,
+                  bottom: -16,
+                  child: OutlinedButton(
+                    onPressed: _openInApp,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: cs.onSurface,
+                      side: BorderSide(color: cs.outlineVariant),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 22,
+                        vertical: 10,
+                      ),
+                      shape: const StadiumBorder(),
+                    ),
+                    child: const Text(
+                      'Open in app',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+
+          // Name, username, bio, meta chips, stats row
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, avatarRadius + 14, 20, 4),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName.isNotEmpty ? displayName : username,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '@$username',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                if (bio.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    bio,
+                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                  ),
+                ],
+                if (location.isNotEmpty ||
+                    website.isNotEmpty ||
+                    joined != null) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 16,
+                    runSpacing: 4,
+                    children: [
+                      if (location.isNotEmpty)
+                        _MetaChip(icon: Icons.place_outlined, label: location),
+                      if (website.isNotEmpty)
+                        _LinkChip(
+                          icon: Icons.link_rounded,
+                          label: _websiteLabel(website),
+                          onTap: () async {
+                            final uri = Uri.tryParse(website);
+                            if (uri != null) {
+                              await launchUrl(
+                                uri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            }
+                          },
+                        ),
+                      if (joined != null)
+                        _MetaChip(
+                          icon: Icons.calendar_month_outlined,
+                          label: 'Joined $joined',
+                        ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 16),
+                // Inline stats — same layout as authenticated profile
+                Row(
+                  children: [
+                    _InlineStat(label: 'Following', value: _followingCount),
+                    const _StatDivider(),
+                    _InlineStat(label: 'Followers', value: _followersCount),
+                    const _StatDivider(),
+                    _InlineStat(label: 'Polls', value: _polls.length),
+                  ],
+                ),
+                const SizedBox(height: 4),
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          // Bio
-          if (bio.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Text(bio, style: theme.textTheme.bodyMedium),
+  Widget _buildPollsLabel(ThemeData theme, ColorScheme cs) {
+    return _constrained(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+        child: Text(
+          'Polls',
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Date helpers ──────────────────────────────────────────────────────────
+
+  static const _months = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  static String? _joinedLabel(dynamic raw) {
+    final at = raw == null ? null : DateTime.tryParse(raw.toString());
+    if (at == null) return null;
+    return '${_months[at.month - 1]} ${at.year}';
+  }
+
+  static String _websiteLabel(String url) {
+    var label = url.replaceFirst(RegExp(r'^https?://'), '');
+    if (label.endsWith('/')) label = label.substring(0, label.length - 1);
+    return label;
+  }
+}
+
+// ── Helper widgets — mirror the private widgets in profile_screen.dart ───────
+
+class _GhostCircle extends StatelessWidget {
+  const _GhostCircle({required this.size, required this.color});
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+  );
+}
+
+class _MetaChip extends StatelessWidget {
+  const _MetaChip({required this.icon, required this.label});
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 17, color: cs.onSurfaceVariant),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LinkChip extends StatelessWidget {
+  const _LinkChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 17, color: cs.primary),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.primary,
+              fontWeight: FontWeight.w600,
             ),
-
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
-            child: Divider(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _InlineStat extends StatelessWidget {
+  const _InlineStat({required this.label, required this.value});
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$value',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatDivider extends StatelessWidget {
+  const _StatDivider();
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: SizedBox(
+        height: 14,
+        child: VerticalDivider(
+          width: 1,
+          thickness: 1,
+          color: cs.outlineVariant,
+        ),
       ),
     );
   }
