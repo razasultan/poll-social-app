@@ -120,7 +120,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
     if (go != true || !mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
 
     try {
@@ -131,12 +130,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
 
+    // Navigation to LoginScreen is handled by MainShell's auth-state listener
+    // via addPostFrameCallback. Doing it here too caused a double-navigation
+    // exception because both ran simultaneously after signOut().
     if (!mounted) return;
-    messenger.showSnackBar(const SnackBar(content: Text('Signed out')));
-    navigator.pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
-      (route) => false,
-    );
+    navigator.pop();
   }
 
   Future<void> _openEditProfile() async {

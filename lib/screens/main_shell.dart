@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/media/video_manager.dart';
 import '../core/widgets/trending_rail.dart';
 import '../services/notification_service.dart';
 import '../services/profile_service.dart';
@@ -64,6 +65,20 @@ class _MainShellState extends State<MainShell> {
       final itemCount = user == null ? 4 : 5;
       if (_selectedIndex >= itemCount && mounted) {
         setState(() => _selectedIndex = 0);
+      }
+      // Navigate to login after sign-out. Use addPostFrameCallback to avoid
+      // calling pushAndRemoveUntil while setState is still in flight from
+      // settings_screen's signOut handler, which would cause an exception.
+      if (data.event == AuthChangeEvent.signedOut) {
+        VideoManager.pauseAll();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+              (route) => false,
+            );
+          }
+        });
       }
     });
     final currentUser = Supabase.instance.client.auth.currentUser;
@@ -158,6 +173,10 @@ class _MainShellState extends State<MainShell> {
       unawaited(_openCreate());
       return;
     }
+    // Pause any playing video when the user switches tabs — IndexedStack
+    // hides the old tab without pushing a new route, so RouteAware.didPushNext
+    // is never called and we need an explicit pause here.
+    VideoManager.pauseAll();
     _shellNavigatorKey.currentState?.popUntil((route) => route.isFirst);
     setState(() => _selectedIndex = index);
     final u = Supabase.instance.client.auth.currentUser;
