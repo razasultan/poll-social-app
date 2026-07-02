@@ -6,7 +6,7 @@ import 'package:video_player/video_player.dart';
 /// video_preview_web.dart instead, which uses a native <video> element and
 /// supports blob: URLs returned by image_picker.
 class VideoPreview extends StatefulWidget {
-  const VideoPreview({super.key, required this.url, this.height = 200});
+  const VideoPreview({super.key, required this.url, this.height = 300});
 
   final String url;
   final double height;
