@@ -11,8 +11,8 @@ import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/poll_card.dart';
 import '../widgets/poll_result_chart.dart';
-import 'edit_poll_screen.dart';
 import 'embed_poll_screen.dart' show embedSnippetForShareSlug;
+import '../widgets/create_poll_modal.dart' show showEditPollModal;
 
 /// Full poll view with comments and report action.
 class PollDetailScreen extends StatefulWidget {
@@ -337,16 +337,10 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
   Future<void> _editPoll() async {
     final poll = _poll;
     if (poll == null) return;
-    final result = await Navigator.of(context).push<dynamic>(
-      MaterialPageRoute(
-        fullscreenDialog: true,
-        builder: (_) => EditPollScreen(poll: poll),
-      ),
-    );
+    final result = await showEditPollModal(context, poll);
     if (!mounted) return;
     if (result == 'deleted') {
-      // Poll is gone — pop detail screen back to feed.
-      Navigator.of(context).pop();
+      Navigator.of(context).pop('deleted');
     } else if (result == true) {
       _load();
     }
@@ -382,7 +376,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     try {
       await _pollService.deletePoll(widget.pollId);
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context).pop('deleted');
     } catch (_) {
       if (!mounted) return;
       AppToast.error(context, 'Could not delete poll. Try again.');

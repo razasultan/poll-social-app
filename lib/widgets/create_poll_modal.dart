@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../screens/create_poll_screen.dart';
+import '../screens/edit_poll_screen.dart';
 
 /// Matches MainShell's own wide-layout breakpoint (NavigationRail vs
 /// BottomNavigationBar), so the modal switches presentation at the same
@@ -34,6 +35,40 @@ Future<bool?> showCreatePollModal(BuildContext context) {
     builder: (context) => SizedBox(
       height: MediaQuery.sizeOf(context).height * 0.94,
       child: const CreatePollScreen(),
+    ),
+  );
+}
+
+/// Presents [EditPollScreen] using the same adaptive presentation as
+/// [showCreatePollModal]: a centered dialog on wide screens, a tall bottom
+/// sheet on mobile. Returns [true] when saved, ['deleted'] when the poll is
+/// deleted, or null on cancel.
+Future<dynamic> showEditPollModal(
+  BuildContext context,
+  Map<String, dynamic> poll,
+) {
+  final isWide = MediaQuery.sizeOf(context).width >= _wideLayoutBreakpoint;
+
+  if (isWide) {
+    return showDialog<dynamic>(
+      context: context,
+      builder: (context) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560, maxHeight: 820),
+          child: EditPollScreen(poll: poll),
+        ),
+      ),
+    );
+  }
+
+  return showModalBottomSheet<dynamic>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (context) => SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.94,
+      child: EditPollScreen(poll: poll),
     ),
   );
 }

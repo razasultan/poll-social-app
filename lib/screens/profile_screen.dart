@@ -499,14 +499,17 @@ class _ProfileScreenState extends State<ProfileScreen>
             return PollCard(
               poll: poll,
               showTrendingScore: false,
-              onPollTap: () {
+              onPollTap: () async {
                 final id = poll['id']?.toString();
                 if (id == null || id.isEmpty) return;
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
+                final result = await Navigator.of(context).push<dynamic>(
+                  MaterialPageRoute<dynamic>(
                     builder: (context) => PollDetailScreen(pollId: id),
                   ),
                 );
+                if (result == 'deleted' && context.mounted) {
+                  _load();
+                }
               },
             );
           }, childCount: polls.length),
