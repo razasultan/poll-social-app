@@ -62,9 +62,10 @@ class _SignupScreenState extends State<SignupScreen> {
   late final ProfileService _profileService;
 
   bool _loading = false;
-  // Inline error displayed persistently below the submit button — survives
-  // after the SnackBar auto-dismisses so the user always knows what failed.
   String? _submitError;
+  // When true the form is replaced by a "check your email" confirmation view.
+  bool _awaitingEmailConfirmation = false;
+  String _confirmedEmail = '';
 
   @override
   void initState() {
@@ -221,12 +222,12 @@ class _SignupScreenState extends State<SignupScreen> {
       setState(() => _loading = false);
 
       if (session == null) {
-        _snack(
-          'Account created! Check your inbox to confirm your email, then log in.',
-        );
-        while (context.canPop()) {
-          context.pop();
-        }
+        // Email confirmation required — show a dedicated confirmation view
+        // instead of a snackbar that disappears before the user reads it.
+        setState(() {
+          _awaitingEmailConfirmation = true;
+          _confirmedEmail = email;
+        });
       } else {
         while (context.canPop()) {
           context.pop();
@@ -279,8 +280,93 @@ class _SignupScreenState extends State<SignupScreen> {
     }
   }
 
+  Widget _buildConfirmationView(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Check your email')),
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.mark_email_unread_outlined,
+                    size: 36,
+                    color: cs.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  'Account created!',
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'We sent a confirmation link to',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _confirmedEmail,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Click the link in the email to verify your account, then come back to log in.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton(
+                    onPressed: () {
+                      while (context.canPop()) {
+                        context.pop();
+                      }
+                    },
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text('Go to login'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_awaitingEmailConfirmation) return _buildConfirmationView(context);
+
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
