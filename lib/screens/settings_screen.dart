@@ -10,8 +10,7 @@ import '../core/state/profile_notifier.dart';
 import '../services/auth_service.dart';
 import '../services/moderation_service.dart';
 import '../services/profile_service.dart';
-import 'auth/login_screen.dart';
-import 'auth/signup_screen.dart';
+import 'package:go_router/go_router.dart';
 
 const String _kAppVersion = '0.1.0';
 
@@ -174,9 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _snack('Sign in to manage blocked users.');
       return;
     }
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(builder: (context) => const BlockedUsersScreen()),
-    );
+    context.push('/settings/blocked');
   }
 
   void _showAbout() {
@@ -232,16 +229,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     OutlinedButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const LoginScreen()),
-                      ),
+                      onPressed: () => context.push('/login'),
                       child: const Text('Login'),
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
-                      onPressed: () => Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const SignupScreen()),
-                      ),
+                      onPressed: () => context.push('/signup'),
                       child: const Text('Sign up'),
                     ),
                   ],

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../core/widgets/auth_card.dart';
 import '../../core/widgets/auth_layout.dart';
 import '../../core/widgets/oauth_buttons.dart';
 import '../../services/auth_service.dart';
-import 'signup_screen.dart';
 
 /// Email / password sign-in.
 class LoginScreen extends StatefulWidget {
@@ -70,9 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
         password: _passwordCtrl.text,
       );
       if (!mounted) return;
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
+      if (context.canPop()) context.pop();
     } on AuthException catch (e) {
       if (!mounted) return;
       final parts = <String>[
@@ -302,13 +301,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextButton(
                         onPressed: _loading
                             ? null
-                            : () {
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => const SignupScreen(),
-                                  ),
-                                );
-                              },
+                            : () => context.push('/signup'),
                         child: const Text('Create an account'),
                       ),
                     ],

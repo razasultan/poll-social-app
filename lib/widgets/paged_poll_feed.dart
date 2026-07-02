@@ -1,9 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../core/navigation/branch_utils.dart';
 import '../models/feed_page.dart';
-import '../screens/poll_detail_screen.dart';
 import 'poll_card.dart';
 
 /// Cursor for the next page: API offset (Latest/Trending) and/or loaded IDs (For You exclusions).
@@ -283,11 +284,7 @@ class _PagedPollFeedState extends State<PagedPollFeed>
             onPollTap: () {
               final id = poll['id']?.toString();
               if (id == null || id.isEmpty) return;
-              Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (context) => PollDetailScreen(pollId: id),
-                ),
-              );
+              context.push('${branchPrefixFor(context)}/poll/$id');
             },
           );
         },

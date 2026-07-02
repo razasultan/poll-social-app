@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -13,8 +14,6 @@ import '../services/poll_service.dart';
 import '../services/search_service.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/video_preview.dart';
-import 'auth/login_screen.dart';
-import 'auth/signup_screen.dart';
 
 /// Public share link for a poll's [shareSlug]
 /// (`$publicShareBaseUrl/p/:shareSlug`). Exposed for testing.
@@ -545,7 +544,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
         );
       }
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      context.pop(true);
     } on PostgrestException catch (e) {
       _snack(e.message.isNotEmpty ? e.message : 'Could not publish poll.');
     } catch (_) {
@@ -664,7 +663,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.of(context).maybePop(),
+          onPressed: () => context.pop(),
         ),
         title: const Text('Create Poll'),
       ),
@@ -692,16 +691,12 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
-                    ),
+                    onPressed: () => context.push('/login'),
                     child: const Text('Login'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const SignupScreen()),
-                    ),
+                    onPressed: () => context.push('/signup'),
                     child: const Text('Sign up'),
                   ),
                 ],
@@ -1268,7 +1263,7 @@ class _SharePromptSheetState extends State<_SharePromptSheet> {
           const SizedBox(height: 8),
           Center(
             child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
+              onPressed: () => context.pop(),
               child: const Text('Done'),
             ),
           ),

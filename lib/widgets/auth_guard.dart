@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../screens/auth/login_screen.dart';
-import '../screens/auth/signup_screen.dart';
 
 /// Action-level auth gate for guest browsing.
 ///
@@ -53,7 +51,8 @@ class AuthGuard {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () => Navigator.of(sheetContext).pop('signup'),
+                    onPressed: () =>
+                        Navigator.of(sheetContext).pop('signup'),
                     child: const Text('Create account'),
                   ),
                 ),
@@ -72,13 +71,9 @@ class AuthGuard {
     if (!context.mounted || result == null) return;
 
     if (result == 'login') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
+      context.push('/login');
     } else if (result == 'signup') {
-      Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const SignupScreen()));
+      context.push('/signup');
     }
   }
 }

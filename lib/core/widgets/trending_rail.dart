@@ -1,10 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../screens/poll_detail_screen.dart';
 import '../constants/branding.dart';
-import '../../screens/search_screen.dart';
+import '../navigation/branch_utils.dart';
+import '../state/feed_notifier.dart';
 import '../../services/feed_service.dart';
 import '../../services/social_service.dart';
 import '../../utils/profile_navigation.dart';
@@ -14,10 +14,7 @@ import '../../widgets/auth_guard.dart';
 /// X's third column: a search box, "You might like" follow suggestions, and
 /// a "Trending now" list of the top trending polls.
 class TrendingRail extends StatefulWidget {
-  const TrendingRail({super.key, this.reloadToken});
-
-  /// Bump to refetch (e.g. after publishing a new poll).
-  final ValueListenable<int>? reloadToken;
+  const TrendingRail({super.key});
 
   static const double width = 320;
 
@@ -36,12 +33,12 @@ class _TrendingRailState extends State<TrendingRail> {
     super.initState();
     _trendingFuture = _loadTrending();
     _suggestedFuture = _loadSuggested();
-    widget.reloadToken?.addListener(_reload);
+    feedReloadNotifier.addListener(_reload);
   }
 
   @override
   void dispose() {
-    widget.reloadToken?.removeListener(_reload);
+    feedReloadNotifier.removeListener(_reload);
     super.dispose();
   }
 
@@ -78,14 +75,6 @@ class _TrendingRailState extends State<TrendingRail> {
     return '$n';
   }
 
-  void _openSearch(BuildContext context, {int? tabIndex}) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) => SearchScreen(initialTabIndex: tabIndex),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -98,7 +87,7 @@ class _TrendingRailState extends State<TrendingRail> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _SearchField(onTap: () => _openSearch(context)),
+            _SearchField(onTap: () => context.go('/search')),
             const SizedBox(height: 12),
             _RailCard(
               title: 'You might like',
@@ -127,7 +116,7 @@ class _TrendingRailState extends State<TrendingRail> {
                   );
                 },
               ),
-              onShowMore: () => _openSearch(context, tabIndex: 1),
+              onShowMore: () => context.go('/search'),
             ),
             const SizedBox(height: 12),
             _RailCard(
@@ -161,11 +150,8 @@ class _TrendingRailState extends State<TrendingRail> {
                           onTap: () {
                             final id = (items[i] as Map?)?['id']?.toString();
                             if (id == null || id.isEmpty) return;
-                            Navigator.of(context).push<void>(
-                              MaterialPageRoute<void>(
-                                builder: (context) =>
-                                    PollDetailScreen(pollId: id),
-                              ),
+                            context.push(
+                              '${branchPrefixFor(context)}/poll/$id',
                             );
                           },
                         ),
@@ -181,7 +167,7 @@ class _TrendingRailState extends State<TrendingRail> {
   }
 }
 
-/// X-style rounded search box that opens the full [SearchScreen].
+/// X-style rounded search box that opens the full search branch.
 class _SearchField extends StatelessWidget {
   const _SearchField({required this.onTap});
 
@@ -218,8 +204,6 @@ class _SearchField extends StatelessWidget {
   }
 }
 
-/// Rounded card shell shared by the "You might like" and "Trending now"
-/// sections, mirroring X's third-column modules.
 class _RailCard extends StatelessWidget {
   const _RailCard({required this.title, required this.child, this.onShowMore});
 
@@ -297,8 +281,6 @@ class _RailLoading extends StatelessWidget {
   }
 }
 
-/// "You might like" row: avatar, name/handle, and a Follow button — mirroring
-/// X's follow-suggestion tiles.
 class _SuggestedUserTile extends StatefulWidget {
   const _SuggestedUserTile({required this.user});
 

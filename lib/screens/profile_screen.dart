@@ -1,8 +1,10 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../core/navigation/branch_utils.dart';
 import '../core/state/profile_notifier.dart';
 import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
@@ -12,8 +14,6 @@ import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/create_poll_modal.dart';
 import '../widgets/poll_card.dart';
-import 'poll_detail_screen.dart';
-import 'settings_screen.dart';
 
 /// Normalizes a raw profile row into a `Map<String, dynamic>`. Exposed for testing.
 Map<String, dynamic> asProfileMap(dynamic raw) {
@@ -74,13 +74,9 @@ bool isDuplicateFollowError(PostgrestException e) {
 
 /// Profile header and authored polls for [userId].
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.userId, this.reloadToken});
+  const ProfileScreen({super.key, required this.userId});
 
   final String userId;
-
-  /// Bumped by an ancestor (e.g. after publishing a poll) to trigger a reload
-  /// even while this screen is kept alive in an [IndexedStack].
-  final ValueListenable<int>? reloadToken;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -93,7 +89,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   final SocialService _socialService = SocialService();
 
   late TabController _tabController;
-  int? _lastReloadToken;
 
   bool _loading = true;
   String? _error;
@@ -119,10 +114,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.initState();
     _tabController = TabController(length: _isOwnProfile ? 2 : 1, vsync: this);
     _tabController.addListener(_onTabChanged);
-    _lastReloadToken = widget.reloadToken?.value;
-    widget.reloadToken?.addListener(_onReloadTokenChanged);
     if (_isOwnProfile) {
       profileUpdateNotifier.addListener(_onProfileUpdated);
+      profileReloadNotifier.addListener(_load);
     }
     _load();
   }
@@ -134,21 +128,16 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   @override
   void dispose() {
-    widget.reloadToken?.removeListener(_onReloadTokenChanged);
-    if (_isOwnProfile) profileUpdateNotifier.removeListener(_onProfileUpdated);
+    if (_isOwnProfile) {
+      profileUpdateNotifier.removeListener(_onProfileUpdated);
+      profileReloadNotifier.removeListener(_load);
+    }
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     super.dispose();
   }
 
   void _onProfileUpdated() => _load();
-
-  void _onReloadTokenChanged() {
-    final value = widget.reloadToken?.value;
-    if (value == null || value == _lastReloadToken) return;
-    _lastReloadToken = value;
-    _load();
-  }
 
   Map<String, dynamic> _asProfileMap(dynamic raw) => asProfileMap(raw);
 
@@ -345,13 +334,7 @@ class _ProfileScreenState extends State<ProfileScreen>
             IconButton(
               tooltip: 'Settings',
               icon: const Icon(Icons.settings_outlined),
-              onPressed: () {
-                Navigator.of(context).push<void>(
-                  MaterialPageRoute<void>(
-                    builder: (context) => const SettingsScreen(),
-                  ),
-                );
-              },
+              onPressed: () => context.push('/settings'),
             ),
         ],
       ),
@@ -509,10 +492,8 @@ class _ProfileScreenState extends State<ProfileScreen>
               onPollTap: () async {
                 final id = poll['id']?.toString();
                 if (id == null || id.isEmpty) return;
-                final result = await Navigator.of(context).push<dynamic>(
-                  MaterialPageRoute<dynamic>(
-                    builder: (context) => PollDetailScreen(pollId: id),
-                  ),
+                final result = await context.push<dynamic>(
+                  '${branchPrefixFor(context)}/poll/$id',
                 );
                 if (result == 'deleted' && context.mounted) {
                   _load();

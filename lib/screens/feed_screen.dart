@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/media/video_manager.dart';
+import '../core/state/feed_notifier.dart';
 import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
@@ -12,19 +14,13 @@ import '../widgets/app_toast.dart';
 import '../widgets/auth_guard.dart';
 import '../widgets/create_poll_modal.dart';
 import '../widgets/paged_poll_feed.dart';
-import 'notifications_screen.dart';
-import 'search_screen.dart';
-import 'settings_screen.dart';
 
 /// Home poll feed with For You / Latest / Trending tabs (paged).
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key, this.feedReloadToken});
-
-  /// Increment from parent (e.g. [MainShell]) to reload feed tabs after publishing elsewhere.
-  final ValueNotifier<int>? feedReloadToken;
+  const FeedScreen({super.key});
 
   static void openDebugRoute(BuildContext context) {
-    Navigator.of(context).pushNamed('/debug');
+    context.push('/debug');
   }
 
   static const int _pageSize = 12;
@@ -59,8 +55,6 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
       _syncNotificationBadge(user);
       final isGuestNow = user == null;
       if (isGuestNow != _isGuest && mounted) {
-        // Defer controller swap to avoid disposing mid-frame, which causes
-        // "Controller length mismatch" and ticker assertion errors.
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
           final oldController = _tabController;
@@ -71,7 +65,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
           oldController.dispose();
         });
       }
-      widget.feedReloadToken?.value++;
+      feedReloadNotifier.value++;
     });
     _syncNotificationBadge(Supabase.instance.client.auth.currentUser);
     unawaited(SeenPollsStore.instance.seenIds());
@@ -131,10 +125,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
 
     if (user == null) {
       return RefreshIndicator(
-        onRefresh: () async {
-          final t = widget.feedReloadToken;
-          if (t != null) t.value++;
-        },
+        onRefresh: () async => feedReloadNotifier.value++,
         child: CustomScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
@@ -160,7 +151,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
 
     return PagedPollFeed(
       pageStorageKey: 'feed_for_you',
-      reloadListenable: widget.feedReloadToken,
+      reloadListenable: feedReloadNotifier,
       emptyMessage: 'No polls yet',
       trendingScoreWhenPresent: true,
       fetch: (cursor) async {
@@ -180,7 +171,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
   Widget _buildLatestTab() {
     return PagedPollFeed(
       pageStorageKey: 'feed_latest',
-      reloadListenable: widget.feedReloadToken,
+      reloadListenable: feedReloadNotifier,
       emptyMessage: 'No polls yet',
       fetch: (cursor) => _feedService.getLatestFeedPage(
         limit: FeedScreen._pageSize,
@@ -192,7 +183,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
   Widget _buildTrendingTab() {
     return PagedPollFeed(
       pageStorageKey: 'feed_trending',
-      reloadListenable: widget.feedReloadToken,
+      reloadListenable: feedReloadNotifier,
       emptyMessage: 'No polls yet',
       isTrendingTab: true,
       fetch: (cursor) => _feedService.getTrendingFeedPage(
@@ -214,7 +205,7 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
               if (!context.mounted) return;
               if (created == true) {
                 AppToast.success(context, 'Poll published');
-                widget.feedReloadToken?.value++;
+                feedReloadNotifier.value++;
               }
             },
           );
@@ -238,14 +229,11 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
                 await AuthGuard.requireAuth(
                   context,
                   onAuthenticated: () async {
-                    await Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (context) => const NotificationsScreen(),
-                      ),
-                    );
-                    if (!context.mounted) return;
+                    context.go('/notifications');
                     final u = Supabase.instance.client.auth.currentUser;
-                    if (u != null) await _refreshUnreadBadge(u.id);
+                    if (u != null && context.mounted) {
+                      await _refreshUnreadBadge(u.id);
+                    }
                   },
                 );
               },
@@ -254,33 +242,21 @@ class _FeedScreenState extends State<FeedScreen> with TickerProviderStateMixin {
           IconButton(
             tooltip: 'Search',
             icon: const Icon(Icons.search_rounded),
-            onPressed: () {
-              Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (context) => const SearchScreen(),
-                ),
-              );
-            },
+            onPressed: () => context.go('/search'),
           ),
           IconButton(
             tooltip: 'Settings',
             icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.of(context).push<void>(
-                MaterialPageRoute<void>(
-                  builder: (context) => const SettingsScreen(),
-                ),
-              );
-            },
+            onPressed: () => context.push('/settings'),
           ),
         ],
         title: Row(
           children: [
             GestureDetector(
               onLongPress: () => FeedScreen.openDebugRoute(context),
-              child: Padding(
-                padding: const EdgeInsets.only(right: 10),
-                child: const Icon(Icons.how_to_vote_outlined),
+              child: const Padding(
+                padding: EdgeInsets.only(right: 10),
+                child: Icon(Icons.how_to_vote_outlined),
               ),
             ),
             const Text('Poll Feed'),

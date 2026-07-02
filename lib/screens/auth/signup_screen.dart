@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../../core/widgets/auth_card.dart';
 import '../../core/widgets/auth_layout.dart';
 import '../../core/widgets/oauth_buttons.dart';
@@ -222,9 +224,13 @@ class _SignupScreenState extends State<SignupScreen> {
         _snack(
           'Account created! Check your inbox to confirm your email, then log in.',
         );
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      } else if (Navigator.of(context).canPop()) {
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        while (context.canPop()) {
+          context.pop();
+        }
+      } else {
+        while (context.canPop()) {
+          context.pop();
+        }
       }
     } on AuthException catch (e) {
       if (!mounted) return;

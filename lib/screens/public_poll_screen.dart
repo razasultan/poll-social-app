@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../core/constants/branding.dart';
 import '../services/poll_service.dart';
-import 'main_shell.dart';
-import 'poll_detail_screen.dart';
 
 /// Resolves a public share link (`/p/:shareSlug`) to a poll and opens it in
 /// the full app shell — the entry point for links shared via
@@ -69,13 +69,7 @@ class _PublicPollScreenState extends State<PublicPollScreen> {
       }
 
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainShell()),
-        (route) => false,
-      );
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => PollDetailScreen(pollId: pollId)),
-      );
+      context.go('/home/poll/$pollId');
     } on PostgrestException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -92,12 +86,7 @@ class _PublicPollScreenState extends State<PublicPollScreen> {
     }
   }
 
-  void _openApp() {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const MainShell()),
-      (route) => false,
-    );
-  }
+  void _openApp() => context.go('/home');
 
   @override
   Widget build(BuildContext context) {

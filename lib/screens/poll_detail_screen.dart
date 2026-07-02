@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../core/widgets/timeline_column.dart';
 import '../services/moderation_service.dart';
 import '../services/poll_service.dart';
@@ -342,7 +344,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     final result = await showEditPollModal(context, poll);
     if (!mounted) return;
     if (result == 'deleted') {
-      Navigator.of(context).pop('deleted');
+      context.pop('deleted');
     } else if (result == true) {
       _load();
     }
@@ -378,7 +380,7 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
     try {
       await _pollService.deletePoll(widget.pollId);
       if (!mounted) return;
-      Navigator.of(context).pop('deleted');
+      context.pop('deleted');
     } catch (_) {
       if (!mounted) return;
       AppToast.error(context, 'Could not delete poll. Try again.');

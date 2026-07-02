@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../core/navigation/branch_utils.dart';
 import '../services/search_service.dart';
 import '../utils/profile_navigation.dart';
-import 'poll_detail_screen.dart';
 
 /// Search polls, users, hashtags, and topics via Supabase RPCs.
 class SearchScreen extends StatefulWidget {
@@ -287,11 +289,7 @@ class _SearchScreenState extends State<SearchScreen>
                       final id =
                           item['id']?.toString() ?? item['poll_id']?.toString();
                       if (id == null || id.isEmpty) return;
-                      Navigator.of(ctx).push<void>(
-                        MaterialPageRoute<void>(
-                          builder: (context) => PollDetailScreen(pollId: id),
-                        ),
-                      );
+                      ctx.push('${branchPrefixFor(ctx)}/poll/$id');
                     },
                   ),
                 ),

@@ -1,7 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
-import '../screens/search_screen.dart';
+import 'package:go_router/go_router.dart';
+
 import '../services/profile_service.dart';
 import '../utils/profile_navigation.dart';
 
@@ -44,12 +45,7 @@ class LinkifiedText extends StatelessWidget {
   }
 
   void _onHashtagTap(BuildContext context, String tag) {
-    Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (context) =>
-            SearchScreen(initialQuery: tag, initialTabIndex: 0),
-      ),
-    );
+    context.go('/search?q=${Uri.encodeComponent(tag)}&tab=0');
   }
 
   @override

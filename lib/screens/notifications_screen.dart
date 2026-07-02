@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
+import '../core/navigation/branch_utils.dart';
 import '../services/notification_service.dart';
-import 'auth/login_screen.dart';
-import 'auth/signup_screen.dart';
-import 'poll_detail_screen.dart';
 
 /// Lists notifications for the signed-in user.
 class NotificationsScreen extends StatefulWidget {
@@ -213,11 +213,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         item['related_poll_id']?.toString() ?? item['poll_id']?.toString();
     if (!mounted) return;
     if (pollId != null && pollId.isNotEmpty) {
-      Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (context) => PollDetailScreen(pollId: pollId),
-        ),
-      );
+      context.push('${branchPrefixFor(context)}/poll/$pollId');
     }
   }
 
@@ -277,20 +273,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         OutlinedButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const LoginScreen(),
-                            ),
-                          ),
+                          onPressed: () => context.push('/login'),
                           child: const Text('Login'),
                         ),
                         const SizedBox(width: 12),
                         FilledButton(
-                          onPressed: () => Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const SignupScreen(),
-                            ),
-                          ),
+                          onPressed: () => context.push('/signup'),
                           child: const Text('Sign up'),
                         ),
                       ],

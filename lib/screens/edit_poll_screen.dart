@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'package:go_router/go_router.dart';
+
 import '../core/state/poll_notifier.dart';
 import '../services/poll_service.dart';
 import '../widgets/app_toast.dart';
@@ -363,7 +365,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
       pollUpdateNotifier.value++;
 
       if (!mounted) return;
-      Navigator.of(context).pop(true);
+      context.pop(true);
     } on PostgrestException catch (e) {
       if (!mounted) return;
       AppToast.error(
@@ -412,7 +414,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
     try {
       await _pollService.deletePoll(_pollId);
       if (!mounted) return;
-      Navigator.of(context).pop('deleted');
+      context.pop('deleted');
     } catch (_) {
       if (!mounted) return;
       AppToast.error(context, 'Could not delete poll. Try again.');
@@ -459,7 +461,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
       surfaceTintColor: Colors.transparent,
       leading: IconButton(
         icon: const Icon(Icons.close_rounded),
-        onPressed: _saving ? null : () => Navigator.of(context).maybePop(),
+        onPressed: _saving ? null : () => context.pop(),
         tooltip: 'Discard changes',
       ),
       title: const Text('Edit Poll'),

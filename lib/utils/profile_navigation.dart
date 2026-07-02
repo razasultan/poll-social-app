@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:go_router/go_router.dart';
 
-import '../screens/profile_screen.dart';
+import '../core/navigation/branch_utils.dart';
 
-/// Navigates to [ProfileScreen] for [userId]. No-op if [userId] is empty.
+/// Pushes [ProfileScreen] for [userId] onto the current branch's navigator
+/// stack. No-op when [userId] is empty.
 void openProfile(BuildContext context, String userId) {
   final id = userId.trim();
   if (id.isEmpty) return;
-  Navigator.of(context).push<void>(
-    MaterialPageRoute<void>(builder: (context) => ProfileScreen(userId: id)),
-  );
+  context.push('${branchPrefixFor(context)}/user/$id');
 }
