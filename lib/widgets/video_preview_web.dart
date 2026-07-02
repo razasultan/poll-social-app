@@ -105,7 +105,10 @@ class _VideoPreviewState extends State<VideoPreview> {
   void dispose() {
     _nowPlaying.removeListener(_onNowPlayingChanged);
     if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
+    // Setting src to '' unloads the media and stops playback even if the
+    // HTMLVideoElement lingers in the DOM after the platform view is released.
     _video.pause();
+    _video.src = '';
     super.dispose();
   }
 
