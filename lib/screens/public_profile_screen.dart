@@ -3,19 +3,22 @@ import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/branding.dart';
+import '../core/widgets/brand_mark.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
 import '../widgets/poll_card.dart';
 
-/// Public-facing profile page, accessible at `/u/:username` without auth.
+/// Public-facing profile page at `/u/:username`.
 ///
-/// Resolves the username to a userId, loads the profile and their public
-/// polls, and shows a read-only profile view. Visitors see a CTA to join
-/// the app; authenticated users can follow or navigate normally.
+/// Accessible without auth. Content is constrained to a readable column width.
+/// Unauthenticated visitors see a sticky bottom bar prompting them to join.
 class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({super.key, required this.username});
 
   final String username;
+
+  /// Max content column width — matches the in-app timeline width.
+  static const double _maxWidth = 680;
 
   @override
   State<PublicProfileScreen> createState() => _PublicProfileScreenState();
@@ -29,6 +32,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   String? _error;
   Map<String, dynamic>? _profile;
   List<Map<String, dynamic>> _polls = [];
+
+  bool get _isGuest => Supabase.instance.client.auth.currentUser == null;
 
   @override
   void initState() {
@@ -75,99 +80,192 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
+  /// Opens the profile inside the authenticated shell, switching to the
+  /// home branch so the user can browse freely after logging in.
   void _openInApp() {
     final userId = _profile?['id']?.toString();
-    if (userId == null) {
-      context.go('/home');
-      return;
-    }
-    // If we're already inside the shell (e.g. came from a deep link),
-    // navigate within it; otherwise push into the home branch.
-    context.go('/home/user/$userId');
+    context.go(userId != null ? '/home/user/$userId' : '/home');
+  }
+
+  Widget _buildAppBar() {
+    return SliverAppBar(
+      pinned: true,
+      automaticallyImplyLeading: false,
+      title: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          BrandMark(tile: true, size: 32),
+          const SizedBox(width: 10),
+          const BrandWordmark(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuestBottomBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return SafeArea(
+      top: false,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cs.primary,
+          border: Border(
+            top: BorderSide(color: cs.primary.withValues(alpha: 0.3)),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
+          children: [
+            BrandMark(size: 28, color: Colors.white),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Don't miss what's happening",
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    'Sign up to vote and follow.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            OutlinedButton(
+              onPressed: () => context.push('/login'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                visualDensity: VisualDensity.compact,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Log in'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () => context.push('/signup'),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: cs.primary,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                visualDensity: VisualDensity.compact,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Sign up'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final isGuest = Supabase.instance.client.auth.currentUser == null;
 
-    if (_loading) {
-      return Scaffold(
-        appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(title: Text(Branding.appName)),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.person_off_outlined,
-                  size: 48,
-                  color: cs.onSurfaceVariant,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  _error!,
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: cs.onSurfaceVariant,
+    return Scaffold(
+      bottomNavigationBar: _isGuest ? _buildGuestBottomBar(context) : null,
+      body: CustomScrollView(
+        slivers: [
+          _buildAppBar(),
+          if (_loading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_error != null)
+            SliverFillRemaining(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: PublicProfileScreen._maxWidth,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.person_off_outlined,
+                          size: 48,
+                          color: cs.onSurfaceVariant,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          _error!,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: cs.onSurfaceVariant,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        FilledButton(
+                          onPressed: () => context.go('/home'),
+                          child: Text('Go to ${Branding.appName}'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                const SizedBox(height: 20),
-                FilledButton(
-                  onPressed: () => context.go('/home'),
-                  child: Text('Go to ${Branding.appName}'),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+              ),
+            )
+          else ...[
+            SliverToBoxAdapter(child: _buildProfile(theme, cs)),
+          ],
+        ],
+      ),
+    );
+  }
 
+  Widget _buildProfile(ThemeData theme, ColorScheme cs) {
     final profile = _profile!;
     final displayName = profile['display_name']?.toString() ?? '';
     final username = profile['username']?.toString() ?? '';
     final bio = profile['bio']?.toString() ?? '';
     final avatarUrl = profile['avatar_url']?.toString();
     final headerUrl = profile['header_url']?.toString();
+    final initials =
+        (displayName.isNotEmpty ? displayName : username).isNotEmpty
+        ? (displayName.isNotEmpty ? displayName : username)[0].toUpperCase()
+        : '?';
 
-    return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: headerUrl != null && headerUrl.isNotEmpty ? 160 : 0,
-            pinned: true,
-            title: Text(displayName.isNotEmpty ? displayName : '@$username'),
-            actions: [
-              TextButton.icon(
-                onPressed: _openInApp,
-                icon: const Icon(Icons.open_in_new_rounded, size: 16),
-                label: Text(
-                  isGuest ? 'Join ${Branding.appName}' : 'Open in app',
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          maxWidth: PublicProfileScreen._maxWidth,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // ── Header image ──────────────────────────────────────────────
+            if (headerUrl != null && headerUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                child: AspectRatio(
+                  aspectRatio: 3,
+                  child: Image.network(
+                    headerUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (ctx, err, e) => const SizedBox.shrink(),
+                  ),
                 ),
               ),
-            ],
-            flexibleSpace: headerUrl != null && headerUrl.isNotEmpty
-                ? FlexibleSpaceBar(
-                    background: Image.network(
-                      headerUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (ctx, err, e) => const SizedBox.shrink(),
-                    ),
-                  )
-                : null,
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
+
+            // ── Avatar + name ─────────────────────────────────────────────
+            Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,10 +278,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                         : null,
                     child: avatarUrl == null || avatarUrl.isEmpty
                         ? Text(
-                            (displayName.isNotEmpty ? displayName : username)
-                                .characters
-                                .first
-                                .toUpperCase(),
+                            initials,
                             style: theme.textTheme.headlineMedium?.copyWith(
                               color: cs.onPrimaryContainer,
                               fontWeight: FontWeight.w700,
@@ -212,38 +307,32 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                       ],
                     ),
                   ),
+                  // Open in app (for logged-in users only, guests use bottom bar)
+                  if (!_isGuest)
+                    TextButton.icon(
+                      onPressed: _openInApp,
+                      icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                      label: const Text('Open in app'),
+                    ),
                 ],
               ),
             ),
-          ),
-          if (bio.isNotEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
+
+            // ── Bio ───────────────────────────────────────────────────────
+            if (bio.isNotEmpty)
+              Padding(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                 child: Text(bio, style: theme.textTheme.bodyMedium),
               ),
+
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Divider(),
             ),
-          if (isGuest) ...[
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: OutlinedButton.icon(
-                  onPressed: _openInApp,
-                  icon: const Icon(Icons.how_to_vote_outlined),
-                  label: Text('Join ${Branding.appName} to vote and follow'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+
+            // ── Polls section header ──────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
               child: Text(
                 'Polls',
                 style: theme.textTheme.titleMedium?.copyWith(
@@ -251,10 +340,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 ),
               ),
             ),
-          ),
-          if (_polls.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
+
+            // ── Poll list ─────────────────────────────────────────────────
+            if (_polls.isEmpty)
+              Padding(
                 padding: const EdgeInsets.all(24),
                 child: Center(
                   child: Text(
@@ -264,25 +353,23 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                     ),
                   ),
                 ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) => PollCard(
-                  poll: _polls[index],
+              )
+            else
+              ...List.generate(
+                _polls.length,
+                (i) => PollCard(
+                  poll: _polls[i],
                   onPollTap: () {
-                    final pollId = _polls[index]['id']?.toString();
+                    final pollId = _polls[i]['id']?.toString();
                     if (pollId == null) return;
-                    // Open poll detail within the shell.
                     context.go('/home/poll/$pollId');
                   },
                 ),
-                childCount: _polls.length,
               ),
-            ),
-          const SliverToBoxAdapter(child: SizedBox(height: 32)),
-        ],
+
+            const SizedBox(height: 32),
+          ],
+        ),
       ),
     );
   }
