@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../core/state/poll_notifier.dart';
 import '../services/poll_service.dart';
 import '../widgets/app_toast.dart';
 import '../widgets/video_preview.dart';
@@ -265,6 +266,14 @@ class _EditPollScreenState extends State<EditPollScreen> {
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
+  /// Evicts a network image URL from Flutter's [imageCache] so the next
+  /// render fetches the new version rather than showing the stale cached copy.
+  void _evictUrl(String? url) {
+    if (url != null && url.isNotEmpty) {
+      imageCache.evict(NetworkImage(url));
+    }
+  }
+
   Future<void> _save() async {
     if (_saving) return;
     FocusScope.of(context).unfocus();
@@ -318,9 +327,11 @@ class _EditPollScreenState extends State<EditPollScreen> {
         if (optionId.isEmpty) continue;
         if (_clearOptionMedia[i]) {
           await _pollService.removeOptionMedia(optionId: optionId);
+          _evictUrl(_options[i]['media_url']?.toString());
         } else if (_newOptionMediaBytes[i] != null &&
             _newOptionMedia[i] != null &&
             _newOptionMediaType[i] != null) {
+          _evictUrl(_options[i]['media_url']?.toString());
           await _pollService.replaceOptionMedia(
             userId: user.id,
             pollId: _pollId,
@@ -333,10 +344,12 @@ class _EditPollScreenState extends State<EditPollScreen> {
       }
 
       if (_clearPollMedia) {
+        _evictUrl(_existingPollMediaUrl);
         await _pollService.removePollMedia(pollId: _pollId);
       } else if (_newPollMediaBytes != null &&
           _newPollMedia != null &&
           _newPollMediaType != null) {
+        _evictUrl(_existingPollMediaUrl);
         await _pollService.replacePollMedia(
           userId: user.id,
           pollId: _pollId,
@@ -345,6 +358,9 @@ class _EditPollScreenState extends State<EditPollScreen> {
           mediaType: _newPollMediaType!,
         );
       }
+
+      // Signal feed to reload so edited poll appears with new media.
+      pollUpdateNotifier.value++;
 
       if (!mounted) return;
       Navigator.of(context).pop(true);
