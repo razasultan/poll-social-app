@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'core/config/app_config.dart';
 import 'core/config/supabase_config.dart';
+import 'core/navigation/route_observer.dart';
 import 'core/web/url_strategy.dart';
 import 'core/widgets/dev_environment_banner.dart';
 import 'screens/auth/auth_gate.dart';
@@ -236,6 +237,7 @@ class MyApp extends StatelessWidget {
       theme: _lightTheme,
       darkTheme: _darkTheme,
       themeMode: ThemeMode.system,
+      navigatorObservers: [appRouteObserver],
       home: const AuthGate(),
       debugShowCheckedModeBanner: false,
       routes: {'/debug': (context) => const BackendTestScreen()},

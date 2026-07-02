@@ -4,6 +4,8 @@ import 'dart:ui_web' as ui_web;
 import 'package:flutter/material.dart';
 import 'package:web/web.dart' as web;
 
+import '../core/navigation/route_observer.dart';
+
 /// Flutter web implementation of [VideoPreview].
 ///
 /// Two design decisions:
@@ -23,7 +25,7 @@ class VideoPreview extends StatefulWidget {
   State<VideoPreview> createState() => _VideoPreviewState();
 }
 
-class _VideoPreviewState extends State<VideoPreview> {
+class _VideoPreviewState extends State<VideoPreview> with RouteAware {
   // Broadcasts the viewType of whichever video is currently playing.
   // null means nothing is playing. Every active instance listens and pauses
   // itself when a different viewType is announced.
@@ -40,6 +42,27 @@ class _VideoPreviewState extends State<VideoPreview> {
     super.initState();
     _register(widget.url);
     _nowPlaying.addListener(_onNowPlayingChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route != null) {
+      appRouteObserver.subscribe(this, route);
+    }
+  }
+
+  /// Called when another route is pushed on top of this one (e.g. tapping a
+  /// poll card in the feed navigates to PollDetailScreen). Pause immediately
+  /// so the video doesn't keep playing in the background route.
+  @override
+  void didPushNext() {
+    if (_playing) {
+      _video.pause();
+      if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
+      if (mounted) setState(() => _playing = false);
+    }
   }
 
   @override
@@ -103,6 +126,7 @@ class _VideoPreviewState extends State<VideoPreview> {
 
   @override
   void dispose() {
+    appRouteObserver.unsubscribe(this);
     _nowPlaying.removeListener(_onNowPlayingChanged);
     if (_nowPlaying.value == _viewType) _nowPlaying.value = null;
     // Setting src to '' unloads the media and stops playback even if the
