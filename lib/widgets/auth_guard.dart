@@ -51,8 +51,7 @@ class AuthGuard {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
-                    onPressed: () =>
-                        Navigator.of(sheetContext).pop('signup'),
+                    onPressed: () => Navigator.of(sheetContext).pop('signup'),
                     child: const Text('Create account'),
                   ),
                 ),

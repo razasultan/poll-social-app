@@ -242,7 +242,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-
 /// Shown when dart-defines are missing or Supabase fails to start.
 class _StartupErrorApp extends StatelessWidget {
   const _StartupErrorApp({required this.title, required this.message});

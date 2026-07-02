@@ -158,10 +158,7 @@ class _MainShellState extends State<MainShell> {
     // Navigating to the same branch taps its root (pop-to-top behaviour).
     // Navigating to a different branch preserves that branch's stack.
     if (branchIndex == widget.navigationShell.currentIndex) {
-      widget.navigationShell.goBranch(
-        branchIndex,
-        initialLocation: true,
-      );
+      widget.navigationShell.goBranch(branchIndex, initialLocation: true);
     } else {
       widget.navigationShell.goBranch(branchIndex);
     }

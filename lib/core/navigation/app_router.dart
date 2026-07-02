@@ -26,17 +26,13 @@ List<RouteBase> _branchSubRoutes() => [
   ),
   GoRoute(
     path: 'user/:userId',
-    builder: (ctx, s) =>
-        ProfileScreen(userId: s.pathParameters['userId']!),
+    builder: (ctx, s) => ProfileScreen(userId: s.pathParameters['userId']!),
   ),
   GoRoute(
     path: 'settings',
     builder: (ctx, s) => const SettingsScreen(),
     routes: [
-      GoRoute(
-        path: 'blocked',
-        builder: (ctx, s) => const BlockedUsersScreen(),
-      ),
+      GoRoute(path: 'blocked', builder: (ctx, s) => const BlockedUsersScreen()),
     ],
   ),
 ];
@@ -71,8 +67,9 @@ final GoRouter appRouter = GoRouter(
               path: '/search',
               builder: (ctx, s) => SearchScreen(
                 initialQuery: s.uri.queryParameters['q'],
-                initialTabIndex:
-                    int.tryParse(s.uri.queryParameters['tab'] ?? ''),
+                initialTabIndex: int.tryParse(
+                  s.uri.queryParameters['tab'] ?? '',
+                ),
               ),
               routes: _branchSubRoutes(),
             ),
@@ -156,8 +153,9 @@ class _LoginRequiredView extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 'Log in to view your profile',
-                style: theme.textTheme.bodyLarge
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
