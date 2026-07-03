@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/constants/branding.dart';
 import '../core/widgets/brand_mark.dart';
+import '../core/widgets/timeline_column.dart';
 import '../services/feed_service.dart';
 import '../services/profile_service.dart';
 import '../services/social_service.dart';
@@ -12,15 +13,13 @@ import '../widgets/poll_card.dart';
 
 /// Public-facing profile page at `/u/:username`.
 ///
-/// The profile header intentionally mirrors the authenticated [ProfileScreen]
-/// header — same heights, avatar positioning, border treatment, meta chips,
-/// and stat row — so the two views feel like the same product.
+/// Uses [TimelineColumn] on the body — the same wrapper every other screen
+/// uses — so the left/right column hairline borders and max-width constraint
+/// are identical to the authenticated [ProfileScreen].
 class PublicProfileScreen extends StatefulWidget {
   const PublicProfileScreen({super.key, required this.username});
 
   final String username;
-
-  static const double _maxWidth = 680;
 
   @override
   State<PublicProfileScreen> createState() => _PublicProfileScreenState();
@@ -107,40 +106,15 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     context.go(userId != null ? '/home/user/$userId' : '/home');
   }
 
-  Widget _constrained(Widget child) => Center(
-    child: ConstrainedBox(
-      constraints: const BoxConstraints(
-        maxWidth: PublicProfileScreen._maxWidth,
-      ),
-      child: child,
-    ),
-  );
-
-  // ── App bar ───────────────────────────────────────────────────────────────
-
-  Widget _buildAppBar() {
-    return SliverAppBar(
-      pinned: true,
-      automaticallyImplyLeading: false,
-      title: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          BrandMark(tile: true, size: 32),
-          const SizedBox(width: 10),
-          const BrandWordmark(),
-        ],
-      ),
-    );
-  }
-
   // ── Guest bottom bar ──────────────────────────────────────────────────────
 
   Widget _buildGuestBottomBar(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final screenW = MediaQuery.sizeOf(context).width;
-    const maxW = PublicProfileScreen._maxWidth;
-    final hPad = screenW > maxW ? (screenW - maxW) / 2 : 20.0;
+    final hPad = screenW > TimelineColumn.maxWidth
+        ? (screenW - TimelineColumn.maxWidth) / 2
+        : 20.0;
 
     return SafeArea(
       top: false,
@@ -215,88 +189,110 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final cs = theme.colorScheme;
 
     return Scaffold(
+      // Full-width app bar with brand logo — sits above TimelineColumn
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            BrandMark(tile: true, size: 32),
+            const SizedBox(width: 10),
+            const BrandWordmark(),
+          ],
+        ),
+      ),
       bottomNavigationBar: _isGuest ? _buildGuestBottomBar(context) : null,
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(),
-          if (_loading)
-            const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_error != null)
-            SliverFillRemaining(
-              child: Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: PublicProfileScreen._maxWidth,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.person_off_outlined,
-                          size: 48,
-                          color: cs.onSurfaceVariant,
+      // TimelineColumn provides the same left/right hairline borders and
+      // max-width constraint that every other screen in the app uses.
+      body: TimelineColumn(
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? _buildError(theme, cs)
+            : CustomScrollView(
+                slivers: [
+                  SliverToBoxAdapter(child: _buildHeader(theme, cs)),
+                  _buildPollsTab(cs),
+                  if (_polls.isEmpty)
+                    SliverToBoxAdapter(child: _buildEmptyPolls(theme, cs))
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (context, i) => PollCard(
+                          poll: _polls[i],
+                          onPollTap: () {
+                            final id = _polls[i]['id']?.toString();
+                            if (id != null) context.go('/home/poll/$id');
+                          },
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          _error!,
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: cs.onSurfaceVariant,
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        FilledButton(
-                          onPressed: () => context.go('/home'),
-                          child: Text('Go to ${Branding.appName}'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            )
-          else ...[
-            SliverToBoxAdapter(child: _buildHeader(theme, cs)),
-            SliverToBoxAdapter(child: _constrained(const Divider(height: 1))),
-            SliverToBoxAdapter(child: _buildPollsLabel(theme, cs)),
-            if (_polls.isEmpty)
-              SliverToBoxAdapter(
-                child: _constrained(
-                  Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Center(
-                      child: Text(
-                        'No public polls yet.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
+                        childCount: _polls.length,
                       ),
                     ),
-                  ),
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, i) => _constrained(
-                    PollCard(
-                      poll: _polls[i],
-                      onPollTap: () {
-                        final id = _polls[i]['id']?.toString();
-                        if (id != null) context.go('/home/poll/$id');
-                      },
-                    ),
-                  ),
-                  childCount: _polls.length,
-                ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 48)),
+                ],
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 48)),
+      ),
+    );
+  }
+
+  // ── Sections ──────────────────────────────────────────────────────────────
+
+  Widget _buildError(ThemeData theme, ColorScheme cs) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.person_off_outlined,
+              size: 48,
+              color: cs.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 20),
+            FilledButton(
+              onPressed: () => context.go('/home'),
+              child: Text('Go to ${Branding.appName}'),
+            ),
           ],
-        ],
+        ),
+      ),
+    );
+  }
+
+  /// "Polls" section header styled as a single active tab — pinned below the
+  /// profile header, matching the look of the authenticated ProfileScreen's
+  /// TabBar (without needing a full TabController for a single tab).
+  Widget _buildPollsTab(ColorScheme cs) {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _SingleTabDelegate(
+        label: 'Polls',
+        accentColor: cs.primary,
+        backgroundColor: cs.surface,
+        borderColor: cs.outlineVariant,
+      ),
+    );
+  }
+
+  Widget _buildEmptyPolls(ThemeData theme, ColorScheme cs) {
+    return Padding(
+      padding: const EdgeInsets.all(32),
+      child: Center(
+        child: Text(
+          'No public polls yet.',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: cs.onSurfaceVariant,
+          ),
+        ),
       ),
     );
   }
@@ -318,208 +314,189 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     final joined = _joinedLabel(profile['created_at']);
     const avatarRadius = 38.0;
 
-    return _constrained(
-      Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Cover banner + overlapping avatar — identical to ProfileScreen
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              ClipRect(
-                child: SizedBox(
-                  height: 120,
-                  width: double.infinity,
-                  child: headerUrl != null && headerUrl.isNotEmpty
-                      ? Image.network(headerUrl, fit: BoxFit.cover)
-                      : Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                cs.primary.withValues(alpha: 0.65),
-                                cs.primary.withValues(alpha: 0.22),
-                              ],
-                            ),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                right: -36,
-                                top: -44,
-                                child: _GhostCircle(
-                                  size: 140,
-                                  color: Colors.white.withValues(alpha: 0.10),
-                                ),
-                              ),
-                              Positioned(
-                                right: 60,
-                                bottom: -50,
-                                child: _GhostCircle(
-                                  size: 90,
-                                  color: const Color(
-                                    0xFFF91880,
-                                  ).withValues(alpha: 0.16),
-                                ),
-                              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Cover banner — identical to authenticated ProfileScreen
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRect(
+              child: SizedBox(
+                height: 120,
+                width: double.infinity,
+                child: headerUrl != null && headerUrl.isNotEmpty
+                    ? Image.network(headerUrl, fit: BoxFit.cover)
+                    : Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              cs.primary.withValues(alpha: 0.65),
+                              cs.primary.withValues(alpha: 0.22),
                             ],
                           ),
                         ),
-                ),
-              ),
-              // Avatar — bottom-left, matching authenticated profile exactly
-              Positioned(
-                left: 20,
-                bottom: -avatarRadius,
-                child: Container(
-                  padding: const EdgeInsets.all(3),
-                  decoration: BoxDecoration(
-                    color: cs.surface,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.18),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: CircleAvatar(
-                    radius: avatarRadius,
-                    backgroundColor: cs.primaryContainer,
-                    backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
-                        ? NetworkImage(avatarUrl)
-                        : null,
-                    child: avatarUrl == null || avatarUrl.isEmpty
-                        ? Text(
-                            username.isNotEmpty
-                                ? username[0].toUpperCase()
-                                : '?',
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w700,
-                              color: cs.onPrimaryContainer,
+                        child: Stack(
+                          children: [
+                            Positioned(
+                              right: -36,
+                              top: -44,
+                              child: _GhostCircle(
+                                size: 140,
+                                color: Colors.white.withValues(alpha: 0.10),
+                              ),
                             ),
-                          )
-                        : null,
-                  ),
-                ),
-              ),
-              // Open in app — authenticated users (same slot as Follow button)
-              if (!_isGuest)
-                Positioned(
-                  right: 16,
-                  bottom: -16,
-                  child: OutlinedButton(
-                    onPressed: _openInApp,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: cs.onSurface,
-                      side: BorderSide(color: cs.outlineVariant),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 22,
-                        vertical: 10,
+                            Positioned(
+                              right: 60,
+                              bottom: -50,
+                              child: _GhostCircle(
+                                size: 90,
+                                color: const Color(
+                                  0xFFF91880,
+                                ).withValues(alpha: 0.16),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                      shape: const StadiumBorder(),
+              ),
+            ),
+            // Avatar — bottom-left, matching authenticated profile exactly
+            Positioned(
+              left: 20,
+              bottom: -avatarRadius,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  color: cs.surface,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                    child: const Text(
-                      'Open in app',
-                      style: TextStyle(fontWeight: FontWeight.w800),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-
-          // Name, username, bio, meta chips, stats row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, avatarRadius + 14, 20, 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  displayName.isNotEmpty ? displayName : username,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '@$username',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                if (bio.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(
-                    bio,
-                    style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
-                  ),
-                ],
-                if (location.isNotEmpty ||
-                    website.isNotEmpty ||
-                    joined != null) ...[
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 16,
-                    runSpacing: 4,
-                    children: [
-                      if (location.isNotEmpty)
-                        _MetaChip(icon: Icons.place_outlined, label: location),
-                      if (website.isNotEmpty)
-                        _LinkChip(
-                          icon: Icons.link_rounded,
-                          label: _websiteLabel(website),
-                          onTap: () async {
-                            final uri = Uri.tryParse(website);
-                            if (uri != null) {
-                              await launchUrl(
-                                uri,
-                                mode: LaunchMode.externalApplication,
-                              );
-                            }
-                          },
-                        ),
-                      if (joined != null)
-                        _MetaChip(
-                          icon: Icons.calendar_month_outlined,
-                          label: 'Joined $joined',
-                        ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 16),
-                // Inline stats — same layout as authenticated profile
-                Row(
-                  children: [
-                    _InlineStat(label: 'Following', value: _followingCount),
-                    const _StatDivider(),
-                    _InlineStat(label: 'Followers', value: _followersCount),
-                    const _StatDivider(),
-                    _InlineStat(label: 'Polls', value: _polls.length),
                   ],
                 ),
-                const SizedBox(height: 4),
-              ],
+                child: CircleAvatar(
+                  radius: avatarRadius,
+                  backgroundColor: cs.primaryContainer,
+                  backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty
+                      ? NetworkImage(avatarUrl)
+                      : null,
+                  child: avatarUrl == null || avatarUrl.isEmpty
+                      ? Text(
+                          username.isNotEmpty ? username[0].toUpperCase() : '?',
+                          style: TextStyle(
+                            fontSize: 30,
+                            fontWeight: FontWeight.w700,
+                            color: cs.onPrimaryContainer,
+                          ),
+                        )
+                      : null,
+                ),
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
+            // Open in app — authenticated users (same slot as Follow button)
+            if (!_isGuest)
+              Positioned(
+                right: 16,
+                bottom: -16,
+                child: OutlinedButton(
+                  onPressed: _openInApp,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: cs.onSurface,
+                    side: BorderSide(color: cs.outlineVariant),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 22,
+                      vertical: 10,
+                    ),
+                    shape: const StadiumBorder(),
+                  ),
+                  child: const Text(
+                    'Open in app',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+          ],
+        ),
 
-  Widget _buildPollsLabel(ThemeData theme, ColorScheme cs) {
-    return _constrained(
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-        child: Text(
-          'Polls',
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w800,
+        // Name, username, bio, meta, stats
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, avatarRadius + 14, 20, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                displayName.isNotEmpty ? displayName : username,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '@$username',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: cs.onSurfaceVariant,
+                ),
+              ),
+              if (bio.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  bio,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
+                ),
+              ],
+              if (location.isNotEmpty ||
+                  website.isNotEmpty ||
+                  joined != null) ...[
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: [
+                    if (location.isNotEmpty)
+                      _MetaChip(icon: Icons.place_outlined, label: location),
+                    if (website.isNotEmpty)
+                      _LinkChip(
+                        icon: Icons.link_rounded,
+                        label: _websiteLabel(website),
+                        onTap: () async {
+                          final uri = Uri.tryParse(website);
+                          if (uri != null) {
+                            await launchUrl(
+                              uri,
+                              mode: LaunchMode.externalApplication,
+                            );
+                          }
+                        },
+                      ),
+                    if (joined != null)
+                      _MetaChip(
+                        icon: Icons.calendar_month_outlined,
+                        label: 'Joined $joined',
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _InlineStat(label: 'Following', value: _followingCount),
+                  const _StatDivider(),
+                  _InlineStat(label: 'Followers', value: _followersCount),
+                  const _StatDivider(),
+                  _InlineStat(label: 'Polls', value: _polls.length),
+                ],
+              ),
+              const SizedBox(height: 4),
+            ],
           ),
         ),
-      ),
+      ],
     );
   }
 
@@ -553,7 +530,83 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   }
 }
 
-// ── Helper widgets — mirror the private widgets in profile_screen.dart ───────
+// ── Pinned "Polls" tab header ─────────────────────────────────────────────────
+
+/// Renders a single sticky "Polls" label that looks like the active tab in
+/// [ProfileScreen]'s TabBar — same height, same font weight, same primary-
+/// color underline indicator.
+class _SingleTabDelegate extends SliverPersistentHeaderDelegate {
+  const _SingleTabDelegate({
+    required this.label,
+    required this.accentColor,
+    required this.backgroundColor,
+    required this.borderColor,
+  });
+
+  final String label;
+  final Color accentColor;
+  final Color backgroundColor;
+  final Color borderColor;
+
+  static const double _height = 46;
+
+  @override
+  double get minExtent => _height;
+
+  @override
+  double get maxExtent => _height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        border: Border(bottom: BorderSide(color: borderColor)),
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                height: 3,
+                width: 36,
+                decoration: BoxDecoration(
+                  color: accentColor,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SingleTabDelegate old) =>
+      label != old.label ||
+      accentColor != old.accentColor ||
+      backgroundColor != old.backgroundColor ||
+      borderColor != old.borderColor;
+}
+
+// ── Helper widgets — mirror private widgets from profile_screen.dart ─────────
 
 class _GhostCircle extends StatelessWidget {
   const _GhostCircle({required this.size, required this.color});
