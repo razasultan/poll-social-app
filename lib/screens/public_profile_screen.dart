@@ -36,8 +36,16 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   List<Map<String, dynamic>> _polls = [];
   int _followersCount = 0;
   int _followingCount = 0;
+  bool _isFollowing = false;
+  bool _followBusy = false;
 
-  bool get _isGuest => Supabase.instance.client.auth.currentUser == null;
+  User? get _currentUser => Supabase.instance.client.auth.currentUser;
+  bool get _isGuest => _currentUser == null;
+
+  /// True when the viewer is looking at their own profile.
+  bool get _isOwnProfile =>
+      _currentUser != null &&
+      _currentUser!.id == (_profile?['id']?.toString() ?? '');
 
   @override
   void initState() {
@@ -64,6 +72,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       }
 
       final userId = profile['id']?.toString() ?? '';
+      final me = _currentUser?.id;
       final results = await Future.wait([
         if (userId.isNotEmpty)
           _feedService.getPollsForUser(userId, publicOnly: true)
@@ -77,6 +86,10 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
           _socialService.getFollowingCount(userId)
         else
           Future.value(0),
+        if (userId.isNotEmpty && me != null && me != userId)
+          _socialService.isFollowing(followerId: me, followingId: userId)
+        else
+          Future.value(false),
       ]);
 
       if (!mounted) return;
@@ -90,6 +103,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         _polls = polls;
         _followersCount = results[1] as int;
         _followingCount = results[2] as int;
+        _isFollowing = results[3] as bool;
         _loading = false;
       });
     } catch (_) {
@@ -101,9 +115,41 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
     }
   }
 
-  void _openInApp() {
-    final userId = _profile?['id']?.toString();
-    context.go(userId != null ? '/home/user/$userId' : '/home');
+  Future<void> _toggleFollow() async {
+    final me = _currentUser?.id;
+    final targetId = _profile?['id']?.toString();
+    if (me == null || targetId == null || _followBusy) return;
+
+    setState(() => _followBusy = true);
+    try {
+      if (_isFollowing) {
+        await _socialService.unfollowUser(
+          followerId: me,
+          followingId: targetId,
+        );
+        if (!mounted) return;
+        setState(() {
+          _isFollowing = false;
+          _followersCount = (_followersCount - 1)
+              .clamp(0, double.maxFinite)
+              .toInt();
+        });
+      } else {
+        await _socialService.followUser(followerId: me, followingId: targetId);
+        if (!mounted) return;
+        setState(() {
+          _isFollowing = true;
+          _followersCount++;
+        });
+      }
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Network error. Try again.')),
+      );
+    } finally {
+      if (mounted) setState(() => _followBusy = false);
+    }
   }
 
   // ── Guest bottom bar ──────────────────────────────────────────────────────
@@ -399,26 +445,40 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
                 ),
               ),
             ),
-            // Open in app — authenticated users (same slot as Follow button)
-            if (!_isGuest)
+            // Follow / Following button — only for authenticated non-own profiles
+            if (!_isGuest && !_isOwnProfile)
               Positioned(
                 right: 16,
                 bottom: -16,
                 child: OutlinedButton(
-                  onPressed: _openInApp,
+                  onPressed: _followBusy ? null : _toggleFollow,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: cs.onSurface,
-                    side: BorderSide(color: cs.outlineVariant),
+                    foregroundColor: _isFollowing ? cs.onSurface : cs.surface,
+                    backgroundColor: _isFollowing
+                        ? Colors.transparent
+                        : cs.onSurface,
+                    side: BorderSide(
+                      color: _isFollowing ? cs.outlineVariant : cs.onSurface,
+                    ),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 22,
                       vertical: 10,
                     ),
                     shape: const StadiumBorder(),
                   ),
-                  child: const Text(
-                    'Open in app',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
+                  child: _followBusy
+                      ? SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: _isFollowing ? cs.onSurface : cs.surface,
+                          ),
+                        )
+                      : Text(
+                          _isFollowing ? 'Following' : 'Follow',
+                          style: const TextStyle(fontWeight: FontWeight.w800),
+                        ),
                 ),
               ),
           ],
