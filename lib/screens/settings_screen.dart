@@ -29,6 +29,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _profile;
   bool _profileLoading = false;
   String? _profileError;
+  bool _isPublic = false;
+  bool _isPublicBusy = false;
 
   StreamSubscription<AuthState>? _authSubscription;
 
@@ -66,8 +68,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final raw = await _profileService.getProfile(userId);
       if (!mounted) return;
+      final profile = _asMap(raw);
       setState(() {
-        _profile = _asMap(raw);
+        _profile = profile;
+        _isPublic = profile['is_public'] == true;
         _profileLoading = false;
         _profileError = null;
       });
@@ -165,6 +169,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _togglePublicProfile(bool value) async {
+    final uid = _user?.id;
+    if (uid == null || _isPublicBusy) return;
+    setState(() => _isPublicBusy = true);
+    try {
+      await _profileService.updateProfile(userId: uid, isPublic: value);
+      if (!mounted) return;
+      setState(() => _isPublic = value);
+    } catch (_) {
+      if (!mounted) return;
+      _snack('Could not update profile visibility. Try again.');
+    } finally {
+      if (mounted) setState(() => _isPublicBusy = false);
+    }
   }
 
   void _openBlockedUsers() {
@@ -335,6 +355,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsCard(
             colorScheme: cs,
             children: [
+              SwitchListTile(
+                secondary: Icon(Icons.public_rounded, color: cs.primary),
+                title: const Text('Public profile'),
+                subtitle: Text(
+                  _isPublic
+                      ? 'Anyone can view your profile at /u/${_profile?['username'] ?? ''}'
+                      : 'Your profile is only visible to you',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: cs.onSurfaceVariant,
+                  ),
+                ),
+                value: _isPublic,
+                onChanged: signedIn && !_isPublicBusy
+                    ? _togglePublicProfile
+                    : null,
+              ),
+              const Divider(height: 1),
               ListTile(
                 leading: Icon(Icons.block_rounded, color: cs.primary),
                 title: const Text('Blocked users'),

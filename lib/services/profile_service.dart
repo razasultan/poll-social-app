@@ -83,6 +83,7 @@ class ProfileService {
     String? website,
     DateTime? birthDate,
     bool clearBirthDate = false,
+    bool? isPublic,
   }) async {
     final updates = <String, dynamic>{
       'updated_at': DateTime.now().toIso8601String(),
@@ -96,6 +97,7 @@ class ProfileService {
     if (country != null) updates['country'] = country;
     if (city != null) updates['city'] = city;
     if (website != null) updates['website'] = website;
+    if (isPublic != null) updates['is_public'] = isPublic;
     if (clearBirthDate) {
       updates['birth_date'] = null;
     } else if (birthDate != null) {

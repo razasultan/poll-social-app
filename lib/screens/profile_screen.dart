@@ -341,7 +341,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
-          if (_profile != null)
+          if (_profile != null && _profile!['is_public'] == true)
             IconButton(
               tooltip: 'Share profile',
               icon: const Icon(Icons.link_rounded),

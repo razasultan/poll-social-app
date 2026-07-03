@@ -32,6 +32,7 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   bool _loading = true;
   String? _error;
+  bool _isPrivate = false;
   Map<String, dynamic>? _profile;
   List<Map<String, dynamic>> _polls = [];
   int _followersCount = 0;
@@ -67,6 +68,16 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         setState(() {
           _loading = false;
           _error = 'This profile could not be found.';
+        });
+        return;
+      }
+
+      // Respect profile privacy — show a private screen if is_public is false.
+      if (profile['is_public'] != true) {
+        setState(() {
+          _profile = profile;
+          _loading = false;
+          _isPrivate = true;
         });
         return;
       }
@@ -253,6 +264,8 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
       body: TimelineColumn(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
+            : _isPrivate
+            ? _buildPrivate(theme, cs)
             : _error != null
             ? _buildError(theme, cs)
             : CustomScrollView(
@@ -282,6 +295,52 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
   }
 
   // ── Sections ──────────────────────────────────────────────────────────────
+
+  Widget _buildPrivate(ThemeData theme, ColorScheme cs) {
+    final username = _profile?['username']?.toString() ?? '';
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.lock_outline_rounded,
+              size: 48,
+              color: cs.onSurfaceVariant,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              username.isNotEmpty ? '@$username' : 'This account',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'This profile is private.',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'The owner has not made their profile public yet.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 24),
+            FilledButton(
+              onPressed: () => context.go('/home'),
+              child: Text('Go to ${Branding.appName}'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _buildError(ThemeData theme, ColorScheme cs) {
     return Center(
