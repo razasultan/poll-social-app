@@ -72,17 +72,31 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
         return;
       }
 
-      // Respect profile privacy — show a private screen if is_public is false.
+      final userId = profile['id']?.toString() ?? '';
+
+      // Private profile: show the header but skip polls and social counts.
       if (profile['is_public'] != true) {
+        final counts = await Future.wait([
+          if (userId.isNotEmpty)
+            _socialService.getFollowersCount(userId)
+          else
+            Future.value(0),
+          if (userId.isNotEmpty)
+            _socialService.getFollowingCount(userId)
+          else
+            Future.value(0),
+        ]);
+        if (!mounted) return;
         setState(() {
           _profile = profile;
+          _followersCount = (counts[0] as num?)?.toInt() ?? 0;
+          _followingCount = (counts[1] as num?)?.toInt() ?? 0;
           _loading = false;
           _isPrivate = true;
         });
         return;
       }
 
-      final userId = profile['id']?.toString() ?? '';
       final me = _currentUser?.id;
       final results = await Future.wait([
         if (userId.isNotEmpty)
@@ -296,49 +310,48 @@ class _PublicProfileScreenState extends State<PublicProfileScreen> {
 
   // ── Sections ──────────────────────────────────────────────────────────────
 
+  /// Shows the profile header (avatar, name, bio, stats) with a locked polls
+  /// section — matching X's behaviour where identity info stays visible but
+  /// content is gated when an account is private.
   Widget _buildPrivate(ThemeData theme, ColorScheme cs) {
-    final username = _profile?['username']?.toString() ?? '';
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.lock_outline_rounded,
-              size: 48,
-              color: cs.onSurfaceVariant,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              username.isNotEmpty ? '@$username' : 'This account',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(child: _buildHeader(theme, cs)),
+        _buildPollsTab(cs),
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.lock_outline_rounded,
+                    size: 40,
+                    color: cs.onSurfaceVariant,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'These polls are private',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'This creator has not made their profile public yet.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              'This profile is private.',
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'The owner has not made their profile public yet.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: cs.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: () => context.go('/home'),
-              child: Text('Go to ${Branding.appName}'),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
