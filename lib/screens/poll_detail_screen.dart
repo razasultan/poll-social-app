@@ -16,6 +16,18 @@ import '../widgets/poll_result_chart.dart';
 import 'embed_poll_screen.dart' show embedSnippetForShareSlug;
 import '../widgets/create_poll_modal.dart' show showEditPollModal;
 
+/// Decides whether a key event on the comment composer should submit the
+/// comment (a lone Enter/numpad-Enter key-down) versus letting the
+/// [TextField] handle it normally, which inserts a newline (Shift+Enter, or
+/// any other key). Exposed as a top-level function so the decision can be
+/// unit-tested without pumping a widget tree.
+bool shouldSubmitCommentOnEnter(KeyEvent event, {required bool shiftPressed}) {
+  final isEnter =
+      event.logicalKey == LogicalKeyboardKey.enter ||
+      event.logicalKey == LogicalKeyboardKey.numpadEnter;
+  return event is KeyDownEvent && isEnter && !shiftPressed;
+}
+
 /// Full poll view with comments and report action.
 class PollDetailScreen extends StatefulWidget {
   const PollDetailScreen({super.key, required this.pollId});
@@ -858,40 +870,57 @@ class _PollDetailScreenState extends State<PollDetailScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Expanded(
-                                child: TextField(
-                                  controller: _commentCtrl,
-                                  focusNode: _commentFocusNode,
-                                  textCapitalization:
-                                      TextCapitalization.sentences,
-                                  textInputAction: TextInputAction.send,
-                                  minLines: 1,
-                                  maxLines: 5,
-                                  enabled: !_postingComment,
-                                  onSubmitted: (_) => _submitComment(),
-                                  decoration: InputDecoration(
-                                    hintText: _replyingToUsername != null
-                                        ? 'Reply to @$_replyingToUsername…'
-                                        : 'Add a comment…',
-                                    filled: true,
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: cs.outlineVariant,
+                                child: Focus(
+                                  onKeyEvent: (node, event) {
+                                    if (shouldSubmitCommentOnEnter(
+                                      event,
+                                      shiftPressed: HardwareKeyboard
+                                          .instance
+                                          .isShiftPressed,
+                                    )) {
+                                      if (!_postingComment) {
+                                        _submitComment();
+                                      }
+                                      return KeyEventResult.handled;
+                                    }
+                                    return KeyEventResult.ignored;
+                                  },
+                                  child: TextField(
+                                    controller: _commentCtrl,
+                                    focusNode: _commentFocusNode,
+                                    textCapitalization:
+                                        TextCapitalization.sentences,
+                                    textInputAction: TextInputAction.send,
+                                    minLines: 1,
+                                    maxLines: 5,
+                                    enabled: !_postingComment,
+                                    onSubmitted: (_) => _submitComment(),
+                                    decoration: InputDecoration(
+                                      hintText: _replyingToUsername != null
+                                          ? 'Reply to @$_replyingToUsername…'
+                                          : 'Add a comment…',
+                                      filled: true,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                      borderSide: BorderSide(
-                                        color: cs.primary,
-                                        width: 1.5,
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: cs.outlineVariant,
+                                        ),
                                       ),
-                                    ),
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 12,
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: cs.primary,
+                                          width: 1.5,
+                                        ),
+                                      ),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
                                     ),
                                   ),
                                 ),
@@ -1053,8 +1082,12 @@ class _CommentTileState extends State<_CommentTile> {
 
         // Optimistic flip
         setState(() {
-          _liked = !_liked;
-          _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
+          final next = toggleCommentLikeState(
+            currentlyLiked: _liked,
+            currentLikesCount: _likesCount,
+          );
+          _liked = next.liked;
+          _likesCount = next.likesCount;
           _liking = true;
         });
 
@@ -1073,8 +1106,12 @@ class _CommentTileState extends State<_CommentTile> {
         } on PostgrestException catch (e) {
           if (!mounted) return;
           setState(() {
-            _liked = !_liked;
-            _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
+            final rollback = toggleCommentLikeState(
+              currentlyLiked: _liked,
+              currentLikesCount: _likesCount,
+            );
+            _liked = rollback.liked;
+            _likesCount = rollback.likesCount;
           });
           AppToast.error(
             context,
@@ -1084,8 +1121,12 @@ class _CommentTileState extends State<_CommentTile> {
         } catch (_) {
           if (!mounted) return;
           setState(() {
-            _liked = !_liked;
-            _likesCount = _liked ? _likesCount + 1 : _likesCount - 1;
+            final rollback = toggleCommentLikeState(
+              currentlyLiked: _liked,
+              currentLikesCount: _likesCount,
+            );
+            _liked = rollback.liked;
+            _likesCount = rollback.likesCount;
           });
           AppToast.error(
             context,

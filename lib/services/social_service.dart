@@ -35,6 +35,19 @@ List<Map<String, dynamic>> groupCommentsIntoThread(
   return topLevel;
 }
 
+/// Computes the optimistic (liked, likesCount) pair to apply immediately when
+/// a user toggles a comment's like, before the network call resolves — and
+/// the pair to roll back to if that call fails. Exposed as a top-level
+/// function so the toggle math can be unit-tested without a live backend.
+({bool liked, int likesCount}) toggleCommentLikeState({
+  required bool currentlyLiked,
+  required int currentLikesCount,
+}) {
+  final liked = !currentlyLiked;
+  final likesCount = liked ? currentLikesCount + 1 : currentLikesCount - 1;
+  return (liked: liked, likesCount: likesCount);
+}
+
 class SocialService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
