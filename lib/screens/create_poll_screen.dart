@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../services/poll_service.dart';
 import '../services/search_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/option_media_accordion.dart';
 import '../widgets/video_preview.dart';
 
 /// Public share link for a poll's [shareSlug]
@@ -148,6 +149,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
   final List<String?> _optionMediaType = <String?>[];
 
   String _visibility = 'public';
+  String _mediaLayout = 'scrim';
   String _expirationPreset = expirationNone;
 
   /// Used when [_expirationPreset] is [expirationCustom].
@@ -524,6 +526,7 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
         country: country.isEmpty ? null : country,
         city: city.isEmpty ? null : city,
         expiresAt: _resolveExpiresAt(),
+        mediaLayout: _mediaLayout,
       );
       final pollId = poll['id']?.toString();
 
@@ -654,6 +657,67 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
         type: AppToastType.warning,
       );
     }
+  }
+
+  static const _layoutChoices = [
+    ('scrim', 'Scrim', Icons.grid_view_rounded),
+    ('list', 'List', Icons.view_list_rounded),
+    ('mosaic', 'Mosaic', Icons.auto_awesome_mosaic_rounded),
+  ];
+
+  Widget _buildLayoutPicker() {
+    final cs = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        for (final (value, label, icon) in _layoutChoices) ...[
+          if (value != 'scrim') const SizedBox(width: 8),
+          Expanded(
+            child: GestureDetector(
+              onTap: _submitting
+                  ? null
+                  : () => setState(() => _mediaLayout = value),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: _mediaLayout == value
+                      ? cs.primary.withValues(alpha: 0.12)
+                      : null,
+                  border: Border.all(
+                    color: _mediaLayout == value
+                        ? cs.primary
+                        : cs.outlineVariant,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 20,
+                      color: _mediaLayout == value
+                          ? cs.primary
+                          : cs.onSurfaceVariant,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: _mediaLayout == value
+                            ? cs.primary
+                            : cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 
   Widget _buildGuestPrompt(BuildContext context) {
@@ -825,36 +889,19 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
                       ),
                     ],
                   ),
-                  if (_optionMediaBytes[i] != null &&
-                      _optionMediaType[i] == 'image')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.memory(
-                          _optionMediaBytes[i]!,
-                          height: 120,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    )
-                  else if (_optionMedia[i] != null &&
-                      _optionMediaType[i] == 'video')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: VideoPreview(
-                        url: _optionMedia[i]!.path,
-                        height: 160,
-                      ),
-                    ),
                   if (_optionMedia[i] != null)
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () => _removeOptionMedia(i),
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Remove media'),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: OptionMediaAccordion(
+                        imageBytes: _optionMediaType[i] == 'image'
+                            ? _optionMediaBytes[i]
+                            : null,
+                        videoUrl: _optionMediaType[i] == 'video'
+                            ? _optionMedia[i]!.path
+                            : null,
+                        fileName: _optionMedia[i]!.name,
+                        mediaType: _optionMediaType[i] ?? 'image',
+                        onRemove: () => _removeOptionMedia(i),
                       ),
                     )
                   else
@@ -983,6 +1030,23 @@ class _CreatePollScreenState extends State<CreatePollScreen> {
               ),
             ),
           ),
+          const SizedBox(height: 18),
+          Text(
+            'Media layout',
+            style: Theme.of(context)
+                .textTheme
+                .titleSmall
+                ?.copyWith(fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'How options with images/videos appear in the feed.',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _buildLayoutPicker(),
           const SizedBox(height: 18),
           Text(
             'Topics',

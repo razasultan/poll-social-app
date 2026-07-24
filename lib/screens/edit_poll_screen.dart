@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../core/state/poll_notifier.dart';
 import '../services/poll_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/option_media_accordion.dart';
 import '../widgets/video_preview.dart';
 
 /// Full-screen edit view for a poll the current user owns.
@@ -57,6 +58,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
   String? _newPollMediaType;
 
   String _visibility = 'public';
+  String _mediaLayout = 'scrim';
   DateTime? _expiresAt;
 
   String get _pollId => widget.poll['id']?.toString() ?? '';
@@ -78,6 +80,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
       text: poll['description']?.toString() ?? '',
     );
     _visibility = poll['visibility']?.toString() ?? 'public';
+    _mediaLayout = poll['media_layout']?.toString() ?? 'scrim';
 
     final rawExpiry = poll['expires_at'];
     _expiresAt = rawExpiry != null
@@ -308,6 +311,7 @@ class _EditPollScreenState extends State<EditPollScreen> {
         visibility: _visibility,
         expiresAt: _expiresAt,
         clearExpiry: _expiresAt == null,
+        mediaLayout: _mediaLayout,
       );
 
       if (!_optionsLocked) {
@@ -593,6 +597,12 @@ class _EditPollScreenState extends State<EditPollScreen> {
     ('private', 'Private', Icons.lock_outline_rounded),
   ];
 
+  static const List<(String, String, IconData)> _layoutChoices = [
+    ('scrim', 'Scrim', Icons.grid_view_rounded),
+    ('list', 'List', Icons.view_list_rounded),
+    ('mosaic', 'Mosaic', Icons.auto_awesome_mosaic_rounded),
+  ];
+
   Widget _buildSettingsCard(ColorScheme cs, ThemeData theme) {
     return _card(
       child: Column(
@@ -625,6 +635,67 @@ class _EditPollScreenState extends State<EditPollScreen> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
+          ),
+          const SizedBox(height: 16),
+          Divider(height: 1, color: cs.outlineVariant),
+          const SizedBox(height: 16),
+          Text(
+            'Media layout',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: cs.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              for (final (value, label, icon) in _layoutChoices) ...[
+                if (value != 'scrim') const SizedBox(width: 8),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: _saving
+                        ? null
+                        : () => setState(() => _mediaLayout = value),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _mediaLayout == value
+                            ? cs.primary.withValues(alpha: 0.12)
+                            : null,
+                        border: Border.all(
+                          color: _mediaLayout == value
+                              ? cs.primary
+                              : cs.outlineVariant,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            icon,
+                            size: 20,
+                            color: _mediaLayout == value
+                                ? cs.primary
+                                : cs.onSurfaceVariant,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: _mediaLayout == value
+                                  ? cs.primary
+                                  : cs.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 16),
           Divider(height: 1, color: cs.outlineVariant),
@@ -861,14 +932,15 @@ class _EditPollScreenState extends State<EditPollScreen> {
     String? existingType,
   }) {
     if (hasNew) {
-      return _newMediaPreview(
-        isImage: _newOptionMediaType[i] == 'image',
-        bytes: _newOptionMediaBytes[i],
-        fileName: _newOptionMedia[i]?.name ?? '',
+      return OptionMediaAccordion(
+        imageBytes: _newOptionMediaType[i] == 'image'
+            ? _newOptionMediaBytes[i]
+            : null,
         videoUrl: _newOptionMediaType[i] == 'video'
             ? _newOptionMedia[i]?.path
             : null,
-        cs: cs,
+        fileName: _newOptionMedia[i]?.name ?? '',
+        mediaType: _newOptionMediaType[i] ?? 'image',
         onReplace: () =>
             _showMediaPicker(onPick: (type) => _pickOptionMedia(i, type)),
         onRemove: () => setState(() {
@@ -879,11 +951,11 @@ class _EditPollScreenState extends State<EditPollScreen> {
       );
     }
     if (hasExisting) {
-      return _existingMediaPreview(
-        url: existingUrl!,
+      return OptionMediaAccordion(
+        imageUrl: existingType != 'video' ? existingUrl : null,
+        videoUrl: existingType == 'video' ? existingUrl : null,
+        fileName: '',
         mediaType: existingType ?? 'image',
-        cs: cs,
-        theme: theme,
         onReplace: () =>
             _showMediaPicker(onPick: (type) => _pickOptionMedia(i, type)),
         onRemove: () => setState(() => _clearOptionMedia[i] = true),

@@ -24,6 +24,7 @@ class FeedService {
           allow_embedding,
           country,
           city,
+          media_layout,
           profiles(username, display_name, avatar_url),
           poll_options(id, option_text, option_order, media_url, media_type),
           poll_media(media_type, media_url, thumbnail_url),

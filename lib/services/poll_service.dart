@@ -15,6 +15,7 @@ class PollService {
     String? country,
     String? city,
     DateTime? expiresAt,
+    String mediaLayout = 'scrim',
   }) async {
     final poll = await _supabase
         .from('polls')
@@ -27,6 +28,7 @@ class PollService {
           'country': country,
           'city': city,
           'expires_at': expiresAt?.toIso8601String(),
+          'media_layout': mediaLayout,
         })
         .select()
         .single();
@@ -188,6 +190,7 @@ class PollService {
     required String visibility,
     DateTime? expiresAt,
     bool clearExpiry = false,
+    String? mediaLayout,
   }) async {
     await _supabase
         .from('polls')
@@ -196,6 +199,7 @@ class PollService {
           'description': description?.isEmpty == true ? null : description,
           'visibility': visibility,
           'expires_at': clearExpiry ? null : expiresAt?.toIso8601String(),
+          if (mediaLayout != null) 'media_layout': mediaLayout,
         })
         .eq('id', pollId);
   }

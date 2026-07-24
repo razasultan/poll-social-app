@@ -760,55 +760,7 @@ class _PollCardState extends State<PollCard> {
                               ),
                             );
                           },
-                          child: !showResults
-                              ? Column(
-                                  key: const ValueKey<String>('poll_choices'),
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (final o in _options)
-                                      PollOptionButton(
-                                        label:
-                                            o['option_text']?.toString() ?? '',
-                                        mediaUrl: o['media_url']?.toString(),
-                                        mediaType: o['media_type']?.toString(),
-                                        enabled: !_voteLoading,
-                                        onPressed: () =>
-                                            _onVote(o['id']?.toString() ?? ''),
-                                      ),
-                                  ],
-                                )
-                              : Column(
-                                  key: ValueKey<String>(
-                                    'poll_results_$_selectedOptionId',
-                                  ),
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    for (final o in _options)
-                                      PollResultBar(
-                                        label:
-                                            o['option_text']?.toString() ?? '',
-                                        optionKey: o['id']?.toString() ?? '',
-                                        mediaUrl: o['media_url']?.toString(),
-                                        mediaType: o['media_type']?.toString(),
-                                        count:
-                                            _optionVotes[o['id']?.toString() ??
-                                                ''] ??
-                                            0,
-                                        totalVotes: _totalVotes,
-                                        selected:
-                                            o['id']?.toString() ==
-                                            _selectedOptionId,
-                                        percentage: pollResultPercentage(
-                                          _optionVotes[o['id']?.toString() ??
-                                                  ''] ??
-                                              0,
-                                          _totalVotes,
-                                        ),
-                                      ),
-                                  ],
-                                ),
+                          child: _buildOptionSection(showResults),
                         ),
                       if (showResults || expiryLabel != null) ...[
                         const SizedBox(height: 6),
@@ -877,6 +829,103 @@ class _PollCardState extends State<PollCard> {
         ),
       ),
     );
+  }
+
+  String get _mediaLayout =>
+      widget.poll['media_layout']?.toString() ?? 'scrim';
+
+  Widget _buildOptionSection(bool showResults) {
+    final allHaveMedia = _options.isNotEmpty &&
+        _options.every(
+          (o) => (o['media_url']?.toString() ?? '').isNotEmpty,
+        );
+
+    if (!allHaveMedia) {
+      if (!showResults) {
+        return Column(
+          key: const ValueKey<String>('poll_choices'),
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final o in _options)
+              PollOptionButton(
+                label: o['option_text']?.toString() ?? '',
+                mediaUrl: o['media_url']?.toString(),
+                mediaType: o['media_type']?.toString(),
+                enabled: !_voteLoading,
+                onPressed: () => _onVote(o['id']?.toString() ?? ''),
+              ),
+          ],
+        );
+      }
+      return Column(
+        key: ValueKey<String>('poll_results_$_selectedOptionId'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final o in _options)
+            PollResultBar(
+              label: o['option_text']?.toString() ?? '',
+              optionKey: o['id']?.toString() ?? '',
+              mediaUrl: o['media_url']?.toString(),
+              mediaType: o['media_type']?.toString(),
+              count: _optionVotes[o['id']?.toString() ?? ''] ?? 0,
+              totalVotes: _totalVotes,
+              selected: o['id']?.toString() == _selectedOptionId,
+              percentage: pollResultPercentage(
+                _optionVotes[o['id']?.toString() ?? ''] ?? 0,
+                _totalVotes,
+              ),
+            ),
+        ],
+      );
+    }
+
+    // All options have media — dispatch to the chosen layout.
+    if (!showResults) {
+      return switch (_mediaLayout) {
+        'list' => _MediaBallotVoteList(
+          key: const ValueKey<String>('ballot_vote'),
+          options: _options,
+          enabled: !_voteLoading,
+          onVote: _onVote,
+        ),
+        'mosaic' => _MediaMosaicVote(
+          key: const ValueKey<String>('mosaic_vote'),
+          options: _options,
+          enabled: !_voteLoading,
+          onVote: _onVote,
+        ),
+        _ => _MediaScrimVoteGrid(
+          key: const ValueKey<String>('scrim_vote'),
+          options: _options,
+          enabled: !_voteLoading,
+          onVote: _onVote,
+        ),
+      };
+    }
+
+    return switch (_mediaLayout) {
+      'list' => _MediaBallotResultList(
+        key: ValueKey<String>('ballot_result_$_selectedOptionId'),
+        options: _options,
+        optionVotes: _optionVotes,
+        totalVotes: _totalVotes,
+        selectedOptionId: _selectedOptionId,
+      ),
+      'mosaic' => _MediaMosaicResult(
+        key: ValueKey<String>('mosaic_result_$_selectedOptionId'),
+        options: _options,
+        optionVotes: _optionVotes,
+        totalVotes: _totalVotes,
+        selectedOptionId: _selectedOptionId,
+      ),
+      _ => _MediaScrimResultGrid(
+        key: ValueKey<String>('scrim_result_$_selectedOptionId'),
+        options: _options,
+        optionVotes: _optionVotes,
+        totalVotes: _totalVotes,
+        selectedOptionId: _selectedOptionId,
+      ),
+    };
   }
 }
 
@@ -1414,6 +1463,1444 @@ class PollMediaPreview extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Shared media preview dialogs ─────────────────────────────────────────────
+
+void _openImageLightbox(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (ctx) => GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(ctx).pop(),
+      child: Stack(
+        children: [
+          Center(
+            child: GestureDetector(
+              onTap: () {},
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, progress) =>
+                        progress == null
+                            ? child
+                            : const SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: CircularProgressIndicator(),
+                              ),
+                    errorBuilder: (context, error, stack) =>
+                        const SizedBox.shrink(),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 16,
+            right: 16,
+            child: SafeArea(
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.60),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+void _openVideoDialog(BuildContext context, String url) {
+  showDialog<void>(
+    context: context,
+    barrierColor: Colors.black.withValues(alpha: 0.92),
+    builder: (ctx) => GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(ctx).pop(),
+      child: Stack(
+        children: [
+          Center(
+            child: GestureDetector(
+              onTap: () {},
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: VideoPreview(url: url, height: 280),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 16,
+            right: 16,
+            child: SafeArea(
+              child: Material(
+                color: Colors.black.withValues(alpha: 0.60),
+                shape: const CircleBorder(),
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => Navigator.of(ctx).pop(),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.close_rounded, color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+// ── Shared media background widget ───────────────────────────────────────────
+
+class _MediaBackground extends StatelessWidget {
+  const _MediaBackground({required this.mediaUrl, required this.isVideo});
+
+  final String mediaUrl;
+  final bool isVideo;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    if (isVideo || mediaUrl.isEmpty) {
+      return const ColoredBox(color: Colors.black);
+    }
+    return Image.network(
+      mediaUrl,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stack) =>
+          ColoredBox(color: cs.surfaceContainerHighest),
+    );
+  }
+}
+
+// ── Shared helper: find option IDs tied at max votes ─────────────────────────
+
+Set<String> _findLeaders(Map<String, int> optionVotes) {
+  if (optionVotes.isEmpty) return {};
+  final max = optionVotes.values.reduce((a, b) => a > b ? a : b);
+  return optionVotes.entries
+      .where((e) => e.value == max)
+      .map((e) => e.key)
+      .toSet();
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Layout 1 — Scrim Cards
+// 2-column 16:10 grid; vote controls live on a gradient scrim inside each cell.
+// Last lone option spans full width at 21:9.
+// ═════════════════════════════════════════════════════════════════════════════
+
+Widget _buildScrimGrid({
+  required List<Map<String, dynamic>> options,
+  required Widget Function(Map<String, dynamic> option, bool isWide) cellBuilder,
+}) {
+  final rows = <Widget>[];
+  for (int i = 0; i < options.length; i += 2) {
+    final isLastAlone = i + 1 >= options.length;
+    rows.add(Padding(
+      padding: EdgeInsets.only(bottom: i + 2 < options.length ? 8 : 0),
+      child: isLastAlone
+          ? cellBuilder(options[i], true)
+          : Row(children: [
+              Expanded(child: cellBuilder(options[i], false)),
+              const SizedBox(width: 8),
+              Expanded(child: cellBuilder(options[i + 1], false)),
+            ]),
+    ));
+  }
+  return Column(children: rows);
+}
+
+class _MediaScrimVoteGrid extends StatelessWidget {
+  const _MediaScrimVoteGrid({
+    super.key,
+    required this.options,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final bool enabled;
+  final void Function(String optionId) onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildScrimGrid(
+      options: options,
+      cellBuilder: (o, isWide) => _ScrimVoteCell(
+        label: o['option_text']?.toString() ?? '',
+        mediaUrl: o['media_url']?.toString() ?? '',
+        isVideo: o['media_type']?.toString() == 'video',
+        isWide: isWide,
+        enabled: enabled,
+        onVote: () => onVote(o['id']?.toString() ?? ''),
+      ),
+    );
+  }
+}
+
+class _MediaScrimResultGrid extends StatelessWidget {
+  const _MediaScrimResultGrid({
+    super.key,
+    required this.options,
+    required this.optionVotes,
+    required this.totalVotes,
+    required this.selectedOptionId,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final Map<String, int> optionVotes;
+  final int totalVotes;
+  final String? selectedOptionId;
+
+  @override
+  Widget build(BuildContext context) {
+    final leaders = _findLeaders(optionVotes);
+    return _buildScrimGrid(
+      options: options,
+      cellBuilder: (o, isWide) {
+        final id = o['id']?.toString() ?? '';
+        final count = optionVotes[id] ?? 0;
+        return _ScrimResultCell(
+          optionKey: id,
+          label: o['option_text']?.toString() ?? '',
+          mediaUrl: o['media_url']?.toString() ?? '',
+          isVideo: o['media_type']?.toString() == 'video',
+          isWide: isWide,
+          fraction: totalVotes > 0 ? count / totalVotes : 0.0,
+          percentage: pollResultPercentage(count, totalVotes),
+          totalVotes: totalVotes,
+          count: count,
+          selected: id == selectedOptionId,
+          isLeading: leaders.contains(id),
+        );
+      },
+    );
+  }
+}
+
+class _ScrimVoteCell extends StatelessWidget {
+  const _ScrimVoteCell({
+    required this.label,
+    required this.mediaUrl,
+    required this.isVideo,
+    required this.isWide,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final String label;
+  final String mediaUrl;
+  final bool isVideo;
+  final bool isWide;
+  final bool enabled;
+  final VoidCallback onVote;
+
+  void _previewMedia(BuildContext context) {
+    if (mediaUrl.isEmpty) return;
+    if (isVideo) {
+      _openVideoDialog(context, mediaUrl);
+    } else {
+      _openImageLightbox(context, mediaUrl);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: isWide ? 21 / 9 : 16 / 10,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _MediaBackground(mediaUrl: mediaUrl, isVideo: isVideo),
+            // Gradient scrim at bottom
+            Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: _ScrimVoteOverlay(label: label),
+            ),
+            // Play / expand icon in upper area
+            Align(
+              alignment: const Alignment(0, -0.2),
+              child: _ScrimPreviewIcon(isVideo: isVideo),
+            ),
+            // Top 65% → preview tap
+            Align(
+              alignment: Alignment.topCenter,
+              child: FractionallySizedBox(
+                heightFactor: 0.65,
+                widthFactor: 1.0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => _previewMedia(context),
+                ),
+              ),
+            ),
+            // Bottom 35% → vote tap (sits on the scrim)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: FractionallySizedBox(
+                heightFactor: 0.35,
+                widthFactor: 1.0,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: enabled ? onVote : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScrimResultCell extends StatelessWidget {
+  const _ScrimResultCell({
+    required this.optionKey,
+    required this.label,
+    required this.mediaUrl,
+    required this.isVideo,
+    required this.isWide,
+    required this.fraction,
+    required this.percentage,
+    required this.totalVotes,
+    required this.count,
+    required this.selected,
+    required this.isLeading,
+  });
+
+  final String optionKey;
+  final String label;
+  final String mediaUrl;
+  final bool isVideo;
+  final bool isWide;
+  final double fraction;
+  final double percentage;
+  final int totalVotes;
+  final int count;
+  final bool selected;
+  final bool isLeading;
+
+  static const Color _blue = Color(0xFF1D9BF0);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: AspectRatio(
+        aspectRatio: isWide ? 21 / 9 : 16 / 10,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _MediaBackground(mediaUrl: mediaUrl, isVideo: isVideo),
+            // Gradient scrim with result content
+            Positioned(
+              left: 0, right: 0, bottom: 0,
+              child: _ScrimResultOverlay(
+                optionKey: optionKey,
+                label: label,
+                fraction: fraction,
+                percentage: percentage,
+                totalVotes: totalVotes,
+                count: count,
+                selected: selected,
+                isLeading: isLeading,
+              ),
+            ),
+            // LEADING badge top-right
+            if (isLeading)
+              Positioned(
+                top: 8, right: 8,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _blue,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'LEADING',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                    ),
+                  ),
+                ),
+              ),
+            // Blue border for voted cell
+            if (selected)
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _blue, width: 2),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScrimVoteOverlay extends StatelessWidget {
+  const _ScrimVoteOverlay({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          stops: [0.0, 0.35, 0.70, 1.0],
+          colors: [
+            Color(0xF2000000),
+            Color(0x99000000),
+            Color(0x61000000),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 24, 12, 10),
+      child: Row(
+        children: [
+          Container(
+            width: 18, height: 18,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+              color: Colors.black.withValues(alpha: 0.30),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
+                shadows: [
+                  Shadow(color: Colors.black, blurRadius: 3, offset: Offset(0, 1)),
+                  Shadow(color: Colors.black, blurRadius: 8),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScrimResultOverlay extends StatelessWidget {
+  const _ScrimResultOverlay({
+    required this.optionKey,
+    required this.label,
+    required this.fraction,
+    required this.percentage,
+    required this.totalVotes,
+    required this.count,
+    required this.selected,
+    required this.isLeading,
+  });
+
+  final String optionKey;
+  final String label;
+  final double fraction;
+  final double percentage;
+  final int totalVotes;
+  final int count;
+  final bool selected;
+  final bool isLeading;
+
+  static const Color _blue = Color(0xFF1D9BF0);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          stops: [0.0, 0.35, 0.70, 1.0],
+          colors: [
+            Color(0xF2000000),
+            Color(0x99000000),
+            Color(0x61000000),
+            Colors.transparent,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 24, 12, 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (selected) ...[
+                Container(
+                  width: 16, height: 16,
+                  decoration: const BoxDecoration(shape: BoxShape.circle, color: _blue),
+                  child: const Icon(Icons.check_rounded, size: 10, color: Colors.white),
+                ),
+                const SizedBox(width: 6),
+              ],
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    shadows: [Shadow(color: Colors.black, blurRadius: 3)],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${percentage.round()}%',
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: isLeading ? _blue : Colors.white,
+                  shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Animated 4px result bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(2),
+            child: SizedBox(
+              height: 4,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  const ColoredBox(color: Color(0x33FFFFFF)),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey<String>('scrim_$optionKey${totalVotes}_$count'),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOut,
+                      tween: Tween<double>(begin: 0, end: fraction.clamp(0.0, 1.0)),
+                      builder: (context, v, child) => FractionallySizedBox(
+                        widthFactor: v,
+                        heightFactor: 1,
+                        child: const ColoredBox(color: _blue),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ScrimPreviewIcon extends StatelessWidget {
+  const _ScrimPreviewIcon({required this.isVideo});
+  final bool isVideo;
+
+  @override
+  Widget build(BuildContext context) {
+    final size = isVideo ? 44.0 : 32.0;
+    return Container(
+      width: size, height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: 0.60),
+      ),
+      child: Icon(
+        isVideo ? Icons.play_arrow_rounded : Icons.zoom_out_map_rounded,
+        color: Colors.white,
+        size: isVideo ? 26.0 : 18.0,
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Layout 2 — Ballot List
+// X-style rows: 112px thumbnail left, text block, vote pill / result right.
+// Thumbnail tap = preview; entire row tap = vote.
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _MediaBallotVoteList extends StatelessWidget {
+  const _MediaBallotVoteList({
+    super.key,
+    required this.options,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final bool enabled;
+  final void Function(String optionId) onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _BallotVoteRow(
+            label: options[i]['option_text']?.toString() ?? '',
+            mediaUrl: options[i]['media_url']?.toString() ?? '',
+            isVideo: options[i]['media_type']?.toString() == 'video',
+            enabled: enabled,
+            onVote: () => onVote(options[i]['id']?.toString() ?? ''),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MediaBallotResultList extends StatelessWidget {
+  const _MediaBallotResultList({
+    super.key,
+    required this.options,
+    required this.optionVotes,
+    required this.totalVotes,
+    required this.selectedOptionId,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final Map<String, int> optionVotes;
+  final int totalVotes;
+  final String? selectedOptionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          Builder(builder: (context) {
+            final o = options[i];
+            final id = o['id']?.toString() ?? '';
+            final count = optionVotes[id] ?? 0;
+            return _BallotResultRow(
+              optionKey: id,
+              label: o['option_text']?.toString() ?? '',
+              mediaUrl: o['media_url']?.toString() ?? '',
+              isVideo: o['media_type']?.toString() == 'video',
+              fraction: totalVotes > 0 ? count / totalVotes : 0.0,
+              percentage: pollResultPercentage(count, totalVotes),
+              totalVotes: totalVotes,
+              count: count,
+              selected: id == selectedOptionId,
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
+class _BallotVoteRow extends StatelessWidget {
+  const _BallotVoteRow({
+    required this.label,
+    required this.mediaUrl,
+    required this.isVideo,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final String label;
+  final String mediaUrl;
+  final bool isVideo;
+  final bool enabled;
+  final VoidCallback onVote;
+
+  static const Color _blue = Color(0xFF1D9BF0);
+
+  void _previewMedia(BuildContext context) {
+    if (mediaUrl.isEmpty) return;
+    if (isVideo) {
+      _openVideoDialog(context, mediaUrl);
+    } else {
+      _openImageLightbox(context, mediaUrl);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: enabled ? onVote : null,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          border: Border.all(color: cs.outlineVariant),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            // Thumbnail: preview tap (stops propagation to vote GestureDetector)
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => _previewMedia(context),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: SizedBox(
+                  width: 112,
+                  child: AspectRatio(
+                    aspectRatio: 16 / 10,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        _MediaBackground(mediaUrl: mediaUrl, isVideo: isVideo),
+                        if (isVideo)
+                          Center(
+                            child: Container(
+                              width: 32, height: 32,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black.withValues(alpha: 0.65),
+                              ),
+                              child: const Icon(
+                                Icons.play_arrow_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                          )
+                        else
+                          Positioned(
+                            bottom: 6, right: 6,
+                            child: Icon(
+                              Icons.zoom_out_map_rounded,
+                              color: Colors.white,
+                              size: 16,
+                              shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Text block
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    isVideo ? 'Video' : 'Photo',
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF71767B)),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Vote pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              decoration: BoxDecoration(
+                border: Border.all(color: _blue),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                'Vote',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _blue,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BallotResultRow extends StatelessWidget {
+  const _BallotResultRow({
+    required this.optionKey,
+    required this.label,
+    required this.mediaUrl,
+    required this.isVideo,
+    required this.fraction,
+    required this.percentage,
+    required this.totalVotes,
+    required this.count,
+    required this.selected,
+  });
+
+  final String optionKey;
+  final String label;
+  final String mediaUrl;
+  final bool isVideo;
+  final double fraction;
+  final double percentage;
+  final int totalVotes;
+  final int count;
+  final bool selected;
+
+  static const Color _blue = Color(0xFF1D9BF0);
+  static const Color _blueFill = Color(0x241D9BF0);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Stack(
+        children: [
+          // Animated blue fill overlay (left → right, 0.6s)
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey<String>('ballot_$optionKey${totalVotes}_$count'),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOut,
+              tween: Tween<double>(begin: 0, end: fraction.clamp(0.0, 1.0)),
+              builder: (context, v, child) => Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: v,
+                  heightFactor: 1,
+                  child: const ColoredBox(color: _blueFill),
+                ),
+              ),
+            ),
+          ),
+          // Row content
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.transparent,
+              border: Border.all(color: selected ? _blue : cs.outlineVariant),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: [
+                // Thumbnail (not tappable in results state)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(9),
+                  child: SizedBox(
+                    width: 112,
+                    child: AspectRatio(
+                      aspectRatio: 16 / 10,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          _MediaBackground(mediaUrl: mediaUrl, isVideo: isVideo),
+                          if (isVideo)
+                            Center(
+                              child: Container(
+                                width: 32, height: 32,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.black.withValues(alpha: 0.65),
+                                ),
+                                child: const Icon(
+                                  Icons.play_arrow_rounded,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (selected) ...[
+                  Container(
+                    width: 20, height: 20,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _blue,
+                    ),
+                    child: const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  '${percentage.round()}%',
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Layout 3 — Mosaic + Chips
+// Top: preview-only media collage. Bottom: numbered pill chips for voting.
+// ═════════════════════════════════════════════════════════════════════════════
+
+class _MediaMosaicVote extends StatelessWidget {
+  const _MediaMosaicVote({
+    super.key,
+    required this.options,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final bool enabled;
+  final void Function(String optionId) onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _MosaicGrid(options: options),
+        const SizedBox(height: 10),
+        _MosaicChipsVote(options: options, enabled: enabled, onVote: onVote),
+      ],
+    );
+  }
+}
+
+class _MediaMosaicResult extends StatelessWidget {
+  const _MediaMosaicResult({
+    super.key,
+    required this.options,
+    required this.optionVotes,
+    required this.totalVotes,
+    required this.selectedOptionId,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final Map<String, int> optionVotes;
+  final int totalVotes;
+  final String? selectedOptionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        _MosaicGrid(options: options),
+        const SizedBox(height: 10),
+        _MosaicChipsResult(
+          options: options,
+          optionVotes: optionVotes,
+          totalVotes: totalVotes,
+          selectedOptionId: selectedOptionId,
+        ),
+      ],
+    );
+  }
+}
+
+class _MosaicGrid extends StatelessWidget {
+  const _MosaicGrid({required this.options});
+  final List<Map<String, dynamic>> options;
+
+  void _preview(BuildContext context, Map<String, dynamic> o) {
+    final url = o['media_url']?.toString() ?? '';
+    if (url.isEmpty) return;
+    if (o['media_type']?.toString() == 'video') {
+      _openVideoDialog(context, url);
+    } else {
+      _openImageLightbox(context, url);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (options.length == 2) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 170,
+                child: _MosaicTile(
+                  option: options[0],
+                  index: 1,
+                  onPreview: () => _preview(context, options[0]),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: SizedBox(
+                height: 170,
+                child: _MosaicTile(
+                  option: options[1],
+                  index: 2,
+                  onPreview: () => _preview(context, options[1]),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 3–5 options: col1 (1.3fr) spans full height; col2 + optional col3 (1fr each).
+    const rowH = 105.0;
+    const gap = 4.0;
+    const totalH = rowH * 2 + gap;
+
+    final col2 = options.sublist(1, options.length.clamp(1, 3));
+    final col3 = options.length > 3 ? options.sublist(3) : <Map<String, dynamic>>[];
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: SizedBox(
+        height: totalH,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Col 1: option 0, full height
+            Expanded(
+              flex: 13,
+              child: _MosaicTile(
+                option: options[0],
+                index: 1,
+                onPreview: () => _preview(context, options[0]),
+              ),
+            ),
+            const SizedBox(width: gap),
+            // Col 2: options 1 & 2
+            Expanded(
+              flex: 10,
+              child: Column(
+                children: [
+                  for (int i = 0; i < col2.length; i++) ...[
+                    if (i > 0) const SizedBox(height: gap),
+                    SizedBox(
+                      height: rowH,
+                      child: _MosaicTile(
+                        option: col2[i],
+                        index: i + 2,
+                        onPreview: () => _preview(context, col2[i]),
+                      ),
+                    ),
+                  ],
+                  if (col2.length < 2) const Spacer(),
+                ],
+              ),
+            ),
+            if (col3.isNotEmpty) ...[
+              const SizedBox(width: gap),
+              // Col 3: options 3 & 4
+              Expanded(
+                flex: 10,
+                child: Column(
+                  children: [
+                    for (int i = 0; i < col3.length; i++) ...[
+                      if (i > 0) const SizedBox(height: gap),
+                      SizedBox(
+                        height: rowH,
+                        child: _MosaicTile(
+                          option: col3[i],
+                          index: i + 4,
+                          onPreview: () => _preview(context, col3[i]),
+                        ),
+                      ),
+                    ],
+                    if (col3.length < 2) const Spacer(),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MosaicTile extends StatelessWidget {
+  const _MosaicTile({
+    required this.option,
+    required this.index,
+    required this.onPreview,
+  });
+
+  final Map<String, dynamic> option;
+  final int index;
+  final VoidCallback onPreview;
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaUrl = option['media_url']?.toString() ?? '';
+    final isVideo = option['media_type']?.toString() == 'video';
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onPreview,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _MediaBackground(mediaUrl: mediaUrl, isVideo: isVideo),
+          // Numbered disc top-left
+          Positioned(
+            top: 6, left: 6,
+            child: Container(
+              width: 22, height: 22,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xBF000000),
+              ),
+              child: Center(
+                child: Text(
+                  '$index',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Play circle for video
+          if (isVideo)
+            Center(
+              child: Container(
+                width: 36, height: 36,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Color(0xBF000000),
+                ),
+                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MosaicChipsVote extends StatelessWidget {
+  const _MosaicChipsVote({
+    required this.options,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final bool enabled;
+  final void Function(String optionId) onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          _MosaicChipVote(
+            index: i + 1,
+            label: options[i]['option_text']?.toString() ?? '',
+            enabled: enabled,
+            onVote: () => onVote(options[i]['id']?.toString() ?? ''),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MosaicChipVote extends StatelessWidget {
+  const _MosaicChipVote({
+    required this.index,
+    required this.label,
+    required this.enabled,
+    required this.onVote,
+  });
+
+  final int index;
+  final String label;
+  final bool enabled;
+  final VoidCallback onVote;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: enabled ? onVote : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          border: Border.all(color: cs.outlineVariant),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 20, height: 20,
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF2F3336),
+              ),
+              child: Center(
+                child: Text(
+                  '$index',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            // Radio ring
+            Container(
+              width: 18, height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF71767B), width: 2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MosaicChipsResult extends StatelessWidget {
+  const _MosaicChipsResult({
+    required this.options,
+    required this.optionVotes,
+    required this.totalVotes,
+    required this.selectedOptionId,
+  });
+
+  final List<Map<String, dynamic>> options;
+  final Map<String, int> optionVotes;
+  final int totalVotes;
+  final String? selectedOptionId;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < options.length; i++) ...[
+          if (i > 0) const SizedBox(height: 6),
+          Builder(builder: (context) {
+            final o = options[i];
+            final id = o['id']?.toString() ?? '';
+            final count = optionVotes[id] ?? 0;
+            return _MosaicChipResult(
+              optionKey: id,
+              index: i + 1,
+              label: o['option_text']?.toString() ?? '',
+              fraction: totalVotes > 0 ? count / totalVotes : 0.0,
+              percentage: pollResultPercentage(count, totalVotes),
+              totalVotes: totalVotes,
+              count: count,
+              selected: id == selectedOptionId,
+            );
+          }),
+        ],
+      ],
+    );
+  }
+}
+
+class _MosaicChipResult extends StatelessWidget {
+  const _MosaicChipResult({
+    required this.optionKey,
+    required this.index,
+    required this.label,
+    required this.fraction,
+    required this.percentage,
+    required this.totalVotes,
+    required this.count,
+    required this.selected,
+  });
+
+  final String optionKey;
+  final int index;
+  final String label;
+  final double fraction;
+  final double percentage;
+  final int totalVotes;
+  final int count;
+  final bool selected;
+
+  static const Color _blue = Color(0xFF1D9BF0);
+  static const Color _blueFill = Color(0x241D9BF0);
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: Stack(
+        children: [
+          // Animated fill
+          Positioned.fill(
+            child: TweenAnimationBuilder<double>(
+              key: ValueKey<String>('chip_$optionKey${totalVotes}_$count'),
+              duration: const Duration(milliseconds: 600),
+              curve: Curves.easeOut,
+              tween: Tween<double>(begin: 0, end: fraction.clamp(0.0, 1.0)),
+              builder: (context, v, child) => Align(
+                alignment: Alignment.centerLeft,
+                child: FractionallySizedBox(
+                  widthFactor: v,
+                  heightFactor: 1,
+                  child: const ColoredBox(color: _blueFill),
+                ),
+              ),
+            ),
+          ),
+          // Chip content
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            decoration: BoxDecoration(
+              border: Border.all(color: selected ? _blue : cs.outlineVariant),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 20, height: 20,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFF2F3336),
+                  ),
+                  child: Center(
+                    child: Text(
+                      '$index',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                if (selected) ...[
+                  Container(
+                    width: 20, height: 20,
+                    decoration: const BoxDecoration(shape: BoxShape.circle, color: _blue),
+                    child: const Icon(Icons.check_rounded, size: 13, color: Colors.white),
+                  ),
+                  const SizedBox(width: 6),
+                ],
+                Text(
+                  '${percentage.round()}%',
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
