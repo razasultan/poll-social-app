@@ -42,7 +42,11 @@ export default defineConfig({
   // Local: run `flutter build web --dart-define=APP_ENV=dev ...` once, then
   //        keep the server alive across test runs with reuseExistingServer.
   webServer: {
-    command: 'serve build/web --listen 8765 --no-clipboard',
+    // -s/--single: rewrite unmatched paths to index.html so Flutter's client-side
+    // router (path-based URL strategy) can handle deep links like /p/:slug -
+    // without it, a hard navigation to a nested path 404s at the static file
+    // server before the app ever loads.
+    command: 'serve build/web --listen 8765 --no-clipboard -s',
     url: 'http://127.0.0.1:8765',
     reuseExistingServer: !process.env.CI,
     timeout: 30_000,
